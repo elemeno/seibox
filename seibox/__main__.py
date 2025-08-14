@@ -146,6 +146,36 @@ def labeler(run: str):
 
 
 @cli.command()
+@click.option("--config", required=True, help="Path to configuration file")
+@click.option("--model", required=True, help="Model name (e.g., openai:gpt-4o-mini)")
+@click.option("--outdir", required=True, help="Output directory for ablation results")
+def ablate(config: str, model: str, outdir: str):
+    """Run ablation study: baseline vs pre-gate vs pre+post-gate."""
+    from pathlib import Path
+    from seibox.runners.ablate_runner import run_ablation_study
+
+    try:
+        # Ensure output directory exists
+        outdir_path = Path(outdir)
+        outdir_path.mkdir(parents=True, exist_ok=True)
+        
+        console.print(f"[bold blue]Running ablation study...[/bold blue]")
+        console.print(f"Config: {config}")
+        console.print(f"Model: {model}")
+        console.print(f"Output: {outdir}")
+        
+        run_ablation_study(
+            config_path=config,
+            model_name=model,
+            output_dir=str(outdir_path)
+        )
+        
+    except Exception as e:
+        console.print(f"[bold red]Error running ablation:[/bold red] {e}")
+        raise click.Abort()
+
+
+@cli.command()
 @click.option("--run", required=True, help="Path to evaluation results JSONL file")
 @click.option("--labels", required=True, help="Path to human labels JSONL file")
 def kappa(run: str, labels: str):
