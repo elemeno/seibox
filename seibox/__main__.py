@@ -63,17 +63,48 @@ def run(suite: str, model: str, config: str, out: str, mitigation: str):
 @click.option("--report", required=True, help="Output path for HTML report")
 def compare(a: str, b: str, report: str):
     """Compare two evaluation runs."""
-    console.print("[yellow]Compare command not yet implemented[/yellow]")
-    console.print(f"Would compare {a} vs {b} and save to {report}")
+    from seibox.ui.report import generate_report
+    
+    try:
+        generate_report(b, report, comparison_path=a)
+        console.print(f"[bold green]Comparison report saved to:[/bold green] {report}")
+    except Exception as e:
+        console.print(f"[bold red]Error generating report:[/bold red] {e}")
+        raise click.Abort()
 
 
 @cli.command()
 @click.option("--runs", required=True, help="Directory containing run results")
 def dashboard(runs: str):
     """Launch the Streamlit dashboard."""
-    console.print("[yellow]Dashboard command not yet implemented[/yellow]")
-    console.print(f"Would launch dashboard with runs from {runs}")
-    console.print("Run: streamlit run seibox/ui/dashboard.py")
+    import subprocess
+    import sys
+    from pathlib import Path
+    
+    # Check if runs directory exists
+    runs_path = Path(runs)
+    if not runs_path.exists():
+        console.print(f"[bold red]Error:[/bold red] Directory {runs} does not exist")
+        raise click.Abort()
+    
+    # Set environment variable for dashboard to know runs directory
+    import os
+    os.environ["SEIBOX_RUNS_DIR"] = runs
+    
+    # Launch streamlit
+    dashboard_path = Path(__file__).parent / "ui" / "dashboard.py"
+    
+    try:
+        console.print(f"[bold blue]Launching dashboard...[/bold blue]")
+        console.print(f"Runs directory: {runs}")
+        subprocess.run([
+            sys.executable, "-m", "streamlit", "run", str(dashboard_path)
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"[bold red]Error launching dashboard:[/bold red] {e}")
+        raise click.Abort()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Dashboard stopped[/yellow]")
 
 
 if __name__ == "__main__":
