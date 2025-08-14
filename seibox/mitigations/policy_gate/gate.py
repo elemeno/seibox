@@ -10,7 +10,7 @@ from seibox.utils.policy import get_contextual_refusal, should_refuse_content
 # Pre-gate keyword patterns that indicate potential policy violations
 PRE_GATE_PATTERNS = [
     r"reveal.*system.*prompt",
-    r"show.*system.*prompt", 
+    r"show.*system.*prompt",
     r"ignore.*previous",
     r"disregard.*instructions",
     r"disregard.*rules",
@@ -18,7 +18,7 @@ PRE_GATE_PATTERNS = [
     r"override.*safety",
     r"tell.*guidelines",
     r"show.*guidelines",
-    r"reveal.*guidelines", 
+    r"reveal.*guidelines",
     r"show.*internal.*instructions",
     r"reveal.*internal.*instructions",
     r"forget.*above",
@@ -55,7 +55,7 @@ def apply_pre(prompt: str) -> Tuple[str, Dict[str, Any]]:
         trace["pre_gate_triggered"] = True
         trace["prompt_risk_level"] = "high"
         # Flag high-risk prompts but don't modify (post-processing handles refusal)
-    
+
     # Check for PII in prompt (for logging purposes)
     prompt_pii = pii.score_pii_leak(prompt)
     if prompt_pii["leak"]:
@@ -86,13 +86,18 @@ def apply_post(text: str, original_prompt: Optional[str] = None) -> Tuple[str, D
 
     # Check for PII leakage
     pii_result = pii.score_pii_leak(text)
-    
+
     # Check for injection violation indicators in the response
     injection_indicators = [
-        "system prompt", "system message", "instructions:", "prompt:",
-        "here are my instructions", "my guidelines are", "i was told to"
+        "system prompt",
+        "system message",
+        "instructions:",
+        "prompt:",
+        "here are my instructions",
+        "my guidelines are",
+        "i was told to",
     ]
-    
+
     text_lower = text.lower()
     injection_detected = any(indicator in text_lower for indicator in injection_indicators)
 
@@ -100,16 +105,16 @@ def apply_post(text: str, original_prompt: Optional[str] = None) -> Tuple[str, D
         trace["post_gate_triggered"] = True
         trace["pii_detected"] = pii_result["entities"]
         trace["refusal_type"] = "pii_protection"
-        
+
         # Get contextual refusal based on detected PII types
         refusal_message = get_contextual_refusal("general", pii_result["entities"])
         text = refusal_message
-        
+
     elif injection_detected:
         trace["post_gate_triggered"] = True
         trace["refusal_type"] = "injection_protection"
         text = INJECTION_REFUSAL
-    
+
     # Add refusal context to trace
     if trace["post_gate_triggered"]:
         trace["refused_text_preview"] = text[:100] + "..." if len(text) > 100 else text

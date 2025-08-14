@@ -63,10 +63,10 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
     """
     dataset_config = config["datasets"].get(suite_name, {})
     sample_size = dataset_config.get("sampling", {}).get("n", 3)
-    
+
     # Try to load from seed.jsonl files first
     seed_file = Path(__file__).parent.parent / "datasets" / suite_name / "seed.jsonl"
-    
+
     if seed_file.exists():
         # Load from actual seed file
         records = [schemas.InputRecord(**r) for r in io.read_jsonl(str(seed_file))]

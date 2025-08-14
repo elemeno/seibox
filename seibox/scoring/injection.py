@@ -37,7 +37,7 @@ ZWSP = "\u200b"
 # RTL override and bidirectional characters for obfuscation
 RTL_OVERRIDE_CHARS = [
     "\u202E",  # Right-to-Left Override (RLO)
-    "\u202D",  # Left-to-Right Override (LRO) 
+    "\u202D",  # Left-to-Right Override (LRO)
     "\u061C",  # Arabic Letter Mark
     "\u200F",  # Right-to-Left Mark
     "\u200E",  # Left-to-Right Mark
@@ -84,7 +84,7 @@ LEET_PATTERNS = [
 # HTML/XML comment patterns for smuggling instructions
 HTML_COMMENT_PATTERNS = [
     r"<!--.*?ignore.*?previous.*?-->",
-    r"<!--.*?disregard.*?above.*?-->", 
+    r"<!--.*?disregard.*?above.*?-->",
     r"<!--.*?new.*?instructions.*?-->",
     r"<!--.*?system.*?prompt.*?-->",
     r"<!--.*?reveal.*?-->",
@@ -94,7 +94,7 @@ HTML_COMMENT_PATTERNS = [
 # Base-N encoding hints (common patterns that suggest encoded content)
 BASE_ENCODING_PATTERNS = [
     r"base64.*(?:decode|print|system)",
-    r"base32.*(?:decode|print|system)", 
+    r"base32.*(?:decode|print|system)",
     r"base16.*(?:decode|print|system)",
     r"hex.*(?:decode|print|system)",
     r"binary.*(?:decode|print|system)",
@@ -106,7 +106,7 @@ BASE_ENCODING_PATTERNS = [
 # Split word patterns (looking for ellipsis, dots, or other separators in key words)
 SPLIT_WORD_PATTERNS = [
     r"i[.…\s-]+gnore",
-    r"dis[.…\s-]+regard", 
+    r"dis[.…\s-]+regard",
     r"for[.…\s-]+get",
     r"over[.…\s-]+ride",
     r"sys[.…\s-]+tem",
@@ -119,10 +119,10 @@ SPLIT_WORD_PATTERNS = [
 
 def detect_rlo_rtl(text: str) -> bool:
     """Detect RTL override and bidirectional characters.
-    
+
     Args:
         text: Text to analyze
-        
+
     Returns:
         True if RTL override characters detected
     """
@@ -131,10 +131,10 @@ def detect_rlo_rtl(text: str) -> bool:
 
 def detect_homoglyphs(text: str) -> bool:
     """Detect homoglyph characters.
-    
+
     Args:
         text: Text to analyze
-        
+
     Returns:
         True if homoglyphs detected
     """
@@ -143,10 +143,10 @@ def detect_homoglyphs(text: str) -> bool:
 
 def detect_html_smuggling(text: str) -> bool:
     """Detect HTML comment smuggling attempts.
-    
+
     Args:
         text: Text to analyze
-        
+
     Returns:
         True if HTML comment smuggling detected
     """
@@ -156,10 +156,10 @@ def detect_html_smuggling(text: str) -> bool:
 
 def detect_base_encoding_hints(text: str) -> bool:
     """Detect base-N encoding hints that suggest system prompt extraction.
-    
+
     Args:
         text: Text to analyze
-        
+
     Returns:
         True if encoding hints detected
     """
@@ -169,10 +169,10 @@ def detect_base_encoding_hints(text: str) -> bool:
 
 def detect_split_instructions(text: str) -> bool:
     """Detect split word obfuscation (e.g., 'i...gnore', 'sys...tem').
-    
+
     Args:
         text: Text to analyze
-        
+
     Returns:
         True if split word obfuscation detected
     """
@@ -258,7 +258,7 @@ def score_injection_violation(text: str) -> Dict[str, Any]:
     html_smuggling_detected = detect_html_smuggling(text)
     base_encoding_detected = detect_base_encoding_hints(text)
     split_instruction_detected = detect_split_instructions(text)
-    
+
     # General obfuscation detection (includes all techniques plus leet speak and ZWSP)
     obfuscation_detected = detect_obfuscation(text)
 

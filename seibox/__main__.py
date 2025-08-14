@@ -14,6 +14,7 @@ def main():
     """Safety Evals in a Box - Evaluate and improve LLM safety."""
     pass
 
+
 # Alias for backwards compatibility
 cli = main
 
@@ -161,18 +162,14 @@ def ablate(config: str, model: str, outdir: str):
         # Ensure output directory exists
         outdir_path = Path(outdir)
         outdir_path.mkdir(parents=True, exist_ok=True)
-        
+
         console.print(f"[bold blue]Running ablation study...[/bold blue]")
         console.print(f"Config: {config}")
         console.print(f"Model: {model}")
         console.print(f"Output: {outdir}")
-        
-        run_ablation_study(
-            config_path=config,
-            model_name=model,
-            output_dir=str(outdir_path)
-        )
-        
+
+        run_ablation_study(config_path=config, model_name=model, output_dir=str(outdir_path))
+
     except Exception as e:
         console.print(f"[bold red]Error running ablation:[/bold red] {e}")
         raise click.Abort()
@@ -281,12 +278,12 @@ def kappa(run: str, labels: str):
 
 @cli.command()
 @click.option("--config", help="Config file to estimate costs for (optional)")
-@click.option("--model", help="Model to test connectivity for (optional)")  
+@click.option("--model", help="Model to test connectivity for (optional)")
 @click.option("--suite", help="Suite to estimate costs for (optional, requires --config)")
 def doctor(config: str, model: str, suite: str):
     """Run health checks for API keys, connectivity, cache, and cost estimation."""
     from seibox.utils.doctor import run_health_checks
-    
+
     try:
         run_health_checks(config_path=config, model_name=model, suite_name=suite)
     except Exception as e:
@@ -300,7 +297,7 @@ def doctor(config: str, model: str, suite: str):
 def new_suite(name: str, description: str):
     """Create a new evaluation suite with config and dataset scaffolding."""
     from seibox.utils.scaffold import create_new_suite
-    
+
     try:
         create_new_suite(name, description)
         console.print(f"[bold green]✓[/bold green] Created new suite: {name}")

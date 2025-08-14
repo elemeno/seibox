@@ -17,7 +17,7 @@ console = Console()
 
 def run_ablation_study(config_path: str, model_name: str, output_dir: str) -> None:
     """Run ablation study comparing baseline vs pre-gate vs pre+post-gate.
-    
+
     Args:
         config_path: Path to evaluation configuration file
         model_name: Model name (e.g., openai:gpt-4o-mini)
@@ -25,144 +25,164 @@ def run_ablation_study(config_path: str, model_name: str, output_dir: str) -> No
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
     # Define the three conditions
     conditions = [
         {
             "name": "baseline",
             "description": "Prompt hardening only",
             "mitigation": "prompt_hardening@0.1.0",
-            "out_file": "baseline.jsonl"
+            "out_file": "baseline.jsonl",
         },
         {
             "name": "pre_gate",
             "description": "Pre-gate only",
             "mitigation": "policy_gate@0.1.0:pre",
-            "out_file": "pre_gate.jsonl"
+            "out_file": "pre_gate.jsonl",
         },
         {
             "name": "pre_post_gate",
             "description": "Pre + Post gate",
             "mitigation": "policy_gate@0.1.0",
-            "out_file": "pre_post_gate.jsonl"
-        }
+            "out_file": "pre_post_gate.jsonl",
+        },
     ]
-    
+
     console.print(f"[bold green]🚀 Starting Ablation Study[/bold green]")
     console.print(f"Suite: pi-injection")
     console.print(f"Model: {model_name}")
     console.print(f"Conditions: {len(conditions)}")
     console.print()
-    
+
     # Run each condition
     results = {}
-    
+
     for i, condition in enumerate(conditions, 1):
-        console.print(f"[bold blue]📊 Running condition {i}/{len(conditions)}: {condition['description']}[/bold blue]")
-        
+        console.print(
+            f"[bold blue]📊 Running condition {i}/{len(conditions)}: {condition['description']}[/bold blue]"
+        )
+
         out_path = output_path / condition["out_file"]
-        
+
         try:
             run_eval(
                 suite_name="pi-injection",
                 model_name=model_name,
                 config_path=config_path,
                 out_path=str(out_path),
-                mitigation_id=condition["mitigation"]
+                mitigation_id=condition["mitigation"],
             )
-            
+
             # Load and compute metrics
             records = [OutputRecord(**r) for r in read_jsonl(str(out_path))]
             metrics = aggregate_metrics(records)
-            
+
             results[condition["name"]] = {
                 "condition": condition,
                 "metrics": metrics,
-                "file": str(out_path)
+                "file": str(out_path),
             }
-            
+
             console.print(f"[green]✓[/green] Completed {condition['name']}: {len(records)} records")
-            
+
         except Exception as e:
             console.print(f"[bold red]✗ Failed {condition['name']}:[/bold red] {e}")
             raise
-    
+
     console.print()
     console.print("[bold green]📈 Computing Comparison Metrics[/bold green]")
-    
+
     # Generate comparison data
     comparison_data = generate_comparison_data(results)
-    
+
     # Save comparison JSON
     comparison_file = output_path / "ablation_comparison.json"
     with open(comparison_file, "w") as f:
         json.dump(comparison_data, f, indent=2, default=str)
-    
+
     console.print(f"[green]✓[/green] Saved comparison data: {comparison_file}")
-    
+
     # Generate HTML report
     report_file = output_path / "ablation_report.html"
     generate_ablation_report(results, str(report_file))
-    
+
     console.print(f"[green]✓[/green] Generated HTML report: {report_file}")
     console.print()
-    
+
     # Display summary table
     display_summary_table(results)
-    
+
     console.print(f"[bold green]🎯 Ablation Study Complete![/bold green]")
     console.print(f"Results saved to: {output_dir}")
 
 
 def generate_comparison_data(results: Dict[str, Any]) -> Dict[str, Any]:
     """Generate comparison data structure for JSON output."""
-    comparison = {
-        "study_type": "ablation",
-        "conditions": {},
-        "deltas": {}
-    }
-    
+    comparison = {"study_type": "ablation", "conditions": {}, "deltas": {}}
+
     # Store each condition's metrics
     for name, result in results.items():
         comparison["conditions"][name] = {
             "description": result["condition"]["description"],
             "mitigation": result["condition"]["mitigation"],
-            "metrics": result["metrics"].__dict__ if hasattr(result["metrics"], "__dict__") else dict(result["metrics"])
+            "metrics": (
+                result["metrics"].__dict__
+                if hasattr(result["metrics"], "__dict__")
+                else dict(result["metrics"])
+            ),
         }
-    
+
     # Calculate deltas vs baseline
     if "baseline" in results:
         baseline_metrics = results["baseline"]["metrics"]
-        
+
         for name, result in results.items():
             if name != "baseline":
                 metrics = result["metrics"]
                 deltas = {}
-                
+
                 # Calculate percentage point changes
-                if hasattr(baseline_metrics, 'safety_coverage') and hasattr(metrics, 'safety_coverage'):
-                    deltas["safety_coverage_delta"] = (metrics.safety_coverage - baseline_metrics.safety_coverage) * 100
-                if hasattr(baseline_metrics, 'benign_pass_rate') and hasattr(metrics, 'benign_pass_rate'):
-                    deltas["benign_pass_rate_delta"] = (metrics.benign_pass_rate - baseline_metrics.benign_pass_rate) * 100
-                if hasattr(baseline_metrics, 'false_positive_rate') and hasattr(metrics, 'false_positive_rate'):
-                    deltas["false_positive_rate_delta"] = (metrics.false_positive_rate - baseline_metrics.false_positive_rate) * 100
-                if hasattr(baseline_metrics, 'injection_success_rate') and hasattr(metrics, 'injection_success_rate'):
-                    deltas["injection_success_rate_delta"] = (metrics.injection_success_rate - baseline_metrics.injection_success_rate) * 100
-                
+                if hasattr(baseline_metrics, "safety_coverage") and hasattr(
+                    metrics, "safety_coverage"
+                ):
+                    deltas["safety_coverage_delta"] = (
+                        metrics.safety_coverage - baseline_metrics.safety_coverage
+                    ) * 100
+                if hasattr(baseline_metrics, "benign_pass_rate") and hasattr(
+                    metrics, "benign_pass_rate"
+                ):
+                    deltas["benign_pass_rate_delta"] = (
+                        metrics.benign_pass_rate - baseline_metrics.benign_pass_rate
+                    ) * 100
+                if hasattr(baseline_metrics, "false_positive_rate") and hasattr(
+                    metrics, "false_positive_rate"
+                ):
+                    deltas["false_positive_rate_delta"] = (
+                        metrics.false_positive_rate - baseline_metrics.false_positive_rate
+                    ) * 100
+                if hasattr(baseline_metrics, "injection_success_rate") and hasattr(
+                    metrics, "injection_success_rate"
+                ):
+                    deltas["injection_success_rate_delta"] = (
+                        metrics.injection_success_rate - baseline_metrics.injection_success_rate
+                    ) * 100
+
                 # Cost and latency changes
-                if hasattr(baseline_metrics, 'total_cost_usd') and hasattr(metrics, 'total_cost_usd'):
+                if hasattr(baseline_metrics, "total_cost_usd") and hasattr(
+                    metrics, "total_cost_usd"
+                ):
                     deltas["cost_delta"] = metrics.total_cost_usd - baseline_metrics.total_cost_usd
-                if hasattr(baseline_metrics, 'latency_p95') and hasattr(metrics, 'latency_p95'):
+                if hasattr(baseline_metrics, "latency_p95") and hasattr(metrics, "latency_p95"):
                     deltas["latency_p95_delta"] = metrics.latency_p95 - baseline_metrics.latency_p95
-                
+
                 comparison["deltas"][name] = deltas
-    
+
     return comparison
 
 
 def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
     """Generate comprehensive HTML report for ablation study."""
-    
+
     # Create enhanced HTML template for ablation
     ablation_html = """
 <!DOCTYPE html>
@@ -334,77 +354,86 @@ def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
 </body>
 </html>
 """
-    
+
     from jinja2 import Template
     from datetime import datetime
-    
+
     template = Template(ablation_html)
-    html = template.render(
-        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        results=results
-    )
-    
+    html = template.render(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), results=results)
+
     with open(output_path, "w") as f:
         f.write(html)
 
 
 def display_summary_table(results: Dict[str, Any]) -> None:
     """Display summary comparison table in terminal."""
-    
+
     table = Table(title="🎯 Ablation Study Results", show_header=True, header_style="bold magenta")
-    
+
     table.add_column("Condition", style="dim", width=15)
     table.add_column("Safety Coverage", justify="center")
-    table.add_column("Benign Pass Rate", justify="center") 
+    table.add_column("Benign Pass Rate", justify="center")
     table.add_column("False Positive", justify="center")
     table.add_column("Injection Success", justify="center")
     table.add_column("Cost ($)", justify="center")
     table.add_column("Latency p95 (ms)", justify="center")
-    
+
     for name, result in results.items():
         metrics = result["metrics"]
         # Handle both object attributes and dictionary keys
-        safety_coverage = getattr(metrics, 'safety_coverage', metrics.get('safety_coverage', 0))
-        benign_pass_rate = getattr(metrics, 'benign_pass_rate', metrics.get('benign_pass_rate', 0))
-        false_positive_rate = getattr(metrics, 'false_positive_rate', metrics.get('false_positive_rate', 0))
-        injection_success_rate = getattr(metrics, 'injection_success_rate', metrics.get('injection_success_rate', 0))
-        total_cost_usd = getattr(metrics, 'total_cost_usd', metrics.get('total_cost_usd', 0))
-        latency_p95 = getattr(metrics, 'latency_p95', metrics.get('latency_p95', 0))
-        
+        safety_coverage = getattr(metrics, "safety_coverage", metrics.get("safety_coverage", 0))
+        benign_pass_rate = getattr(metrics, "benign_pass_rate", metrics.get("benign_pass_rate", 0))
+        false_positive_rate = getattr(
+            metrics, "false_positive_rate", metrics.get("false_positive_rate", 0)
+        )
+        injection_success_rate = getattr(
+            metrics, "injection_success_rate", metrics.get("injection_success_rate", 0)
+        )
+        total_cost_usd = getattr(metrics, "total_cost_usd", metrics.get("total_cost_usd", 0))
+        latency_p95 = getattr(metrics, "latency_p95", metrics.get("latency_p95", 0))
+
         table.add_row(
             result["condition"]["description"],
             f"{safety_coverage * 100:.1f}%",
             f"{benign_pass_rate * 100:.1f}%",
-            f"{false_positive_rate * 100:.1f}%", 
+            f"{false_positive_rate * 100:.1f}%",
             f"{injection_success_rate * 100:.1f}%",
             f"{total_cost_usd:.4f}",
-            f"{latency_p95:.0f}"
+            f"{latency_p95:.0f}",
         )
-    
+
     console.print()
     console.print(table)
     console.print()
-    
+
     # Show delta summary if we have baseline
     if "baseline" in results:
         console.print("[bold]📈 Changes vs Baseline:[/bold]")
-        
+
         baseline_metrics = results["baseline"]["metrics"]
-        baseline_safety = getattr(baseline_metrics, 'safety_coverage', baseline_metrics.get('safety_coverage', 0))
-        baseline_benign = getattr(baseline_metrics, 'benign_pass_rate', baseline_metrics.get('benign_pass_rate', 0))
-        
+        baseline_safety = getattr(
+            baseline_metrics, "safety_coverage", baseline_metrics.get("safety_coverage", 0)
+        )
+        baseline_benign = getattr(
+            baseline_metrics, "benign_pass_rate", baseline_metrics.get("benign_pass_rate", 0)
+        )
+
         for name, result in results.items():
             if name != "baseline":
                 metrics = result["metrics"]
                 desc = result["condition"]["description"]
-                
-                safety_coverage = getattr(metrics, 'safety_coverage', metrics.get('safety_coverage', 0))
-                benign_pass_rate = getattr(metrics, 'benign_pass_rate', metrics.get('benign_pass_rate', 0))
-                
+
+                safety_coverage = getattr(
+                    metrics, "safety_coverage", metrics.get("safety_coverage", 0)
+                )
+                benign_pass_rate = getattr(
+                    metrics, "benign_pass_rate", metrics.get("benign_pass_rate", 0)
+                )
+
                 safety_delta = (safety_coverage - baseline_safety) * 100
                 benign_delta = (benign_pass_rate - baseline_benign) * 100
-                
+
                 console.print(f"  {desc}:")
                 console.print(f"    Safety: {safety_delta:+.1f} pp, Benign: {benign_delta:+.1f} pp")
-        
+
         console.print()

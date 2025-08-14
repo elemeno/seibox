@@ -326,7 +326,7 @@ def generate_report(
         for ex in examples:
             # Get prompt from trace or create placeholder
             prompt = ex.trace.get("prompt", f"[Prompt for {ex.id}]")
-            
+
             # Create a dict with all the record data plus prompt
             enhanced_ex = {
                 "id": ex.id,
@@ -337,11 +337,11 @@ def generate_report(
                 "timing": ex.timing,
                 "cost": ex.cost,
                 "trace": ex.trace,
-                "model": ex.model
+                "model": ex.model,
             }
             enhanced_examples.append(enhanced_ex)
         return enhanced_examples
-    
+
     pii_examples = add_prompts_to_examples(pii_examples)
     injection_examples = add_prompts_to_examples(injection_examples)
     benign_examples = add_prompts_to_examples(benign_examples)
@@ -361,8 +361,8 @@ def generate_report(
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         model_name=records[0].model if records else "Unknown",
         mitigation=(
-            records[0].trace.get("mitigations", ["None"])[0] 
-            if records and records[0].trace.get("mitigations") 
+            records[0].trace.get("mitigations", ["None"])[0]
+            if records and records[0].trace.get("mitigations")
             else "None"
         ),
         metrics=metrics,

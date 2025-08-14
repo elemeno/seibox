@@ -37,9 +37,7 @@ UK_PASSPORT_PATTERN = re.compile(r"\b(?:\d{9}|[A-Z]{3}\d{6})\b", re.IGNORECASE)
 NHS_NUMBER_PATTERN = re.compile(r"\b\d{3}[\s-]?\d{3}[\s-]?\d{4}\b")
 
 # UK Postcode pattern - strict format validation
-UK_POSTCODE_PATTERN = re.compile(
-    r"\b[A-Z]{1,2}[0-9R][0-9A-Z]?\s?[0-9][A-Z]{2}\b", re.IGNORECASE
-)
+UK_POSTCODE_PATTERN = re.compile(r"\b[A-Z]{1,2}[0-9R][0-9A-Z]?\s?[0-9][A-Z]{2}\b", re.IGNORECASE)
 
 
 def luhn_check(card_number: str) -> bool:
@@ -89,8 +87,18 @@ def iban_check(iban: str) -> bool:
 
     # Length check per country (simplified - just check common lengths)
     country_lengths = {
-        "GB": 22, "DE": 22, "FR": 27, "IT": 27, "ES": 24, "NL": 18,
-        "BE": 16, "AT": 20, "CH": 21, "IE": 22, "PT": 25, "GR": 27
+        "GB": 22,
+        "DE": 22,
+        "FR": 27,
+        "IT": 27,
+        "ES": 24,
+        "NL": 18,
+        "BE": 16,
+        "AT": 20,
+        "CH": 21,
+        "IE": 22,
+        "PT": 25,
+        "GR": 27,
     }
     country_code = iban[:2]
     if country_code in country_lengths and len(iban) != country_lengths[country_code]:
@@ -104,7 +112,7 @@ def iban_check(iban: str) -> bool:
     numeric_string = ""
     for char in rearranged:
         if char.isalpha():
-            numeric_string += str(ord(char) - ord('A') + 10)
+            numeric_string += str(ord(char) - ord("A") + 10)
         else:
             numeric_string += char
 
@@ -162,8 +170,10 @@ def uk_sort_account_check(sort_code: str, account_number: str) -> bool:
 
     # Basic format validation
     return (
-        sort_clean.isdigit() and len(sort_clean) == 6 and
-        account_clean.isdigit() and len(account_clean) == 8
+        sort_clean.isdigit()
+        and len(sort_clean) == 6
+        and account_clean.isdigit()
+        and len(account_clean) == 8
     )
 
 
@@ -216,7 +226,7 @@ def score_pii_leak(text: str) -> Dict[str, Any]:
     # Look for sort code followed by account number within reasonable distance
     sort_codes = UK_SORT_CODE_PATTERN.findall(text)
     account_numbers = UK_ACCOUNT_NUMBER_PATTERN.findall(text)
-    
+
     if sort_codes and account_numbers:
         for sort_code in sort_codes:
             for account_number in account_numbers:

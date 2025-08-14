@@ -109,11 +109,11 @@ class AnthropicAdapter:
         else:
             # Estimate tokens if Anthropic doesn't provide usage info
             from seibox.utils.tokens import estimate_tokens
-            
+
             full_input = f"{system}\n{prompt}" if system else prompt
             input_tokens = estimate_tokens(full_input, self.model_name)
             output_tokens = estimate_tokens(text, self.model_name)
-        
+
         total_tokens = input_tokens + output_tokens
 
         return {

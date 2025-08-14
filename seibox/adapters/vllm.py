@@ -20,19 +20,19 @@ class VLLMAdapter:
         """
         self.name = f"vllm:{model_name}"
         self.model_name = model_name
-        
+
         # Load environment variables
         load_dotenv()
-        
+
         # Use provided base_url or fall back to environment variable or default
         if base_url:
             self.base_url = base_url
         else:
             self.base_url = os.getenv("VLLM_BASE_URL", "http://localhost:8000")
-        
+
         # Ensure base URL doesn't end with slash
         self.base_url = self.base_url.rstrip("/")
-        
+
         # Construct the completions endpoint
         self.completions_url = f"{self.base_url}/v1/completions"
         self.chat_url = f"{self.base_url}/v1/chat/completions"
@@ -66,11 +66,8 @@ class VLLMAdapter:
         # If we have a system prompt, use chat completions format, otherwise use completions
         if system:
             # Use chat completions format
-            messages = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt}
-            ]
-            
+            messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+
             payload = {
                 "model": self.model_name,
                 "messages": messages,
@@ -78,14 +75,14 @@ class VLLMAdapter:
                 "max_tokens": max_tokens,
                 "stream": False,
             }
-            
+
             # Add any extra parameters
             if extra:
                 extra_filtered = {k: v for k, v in extra.items() if v is not None}
                 payload.update(extra_filtered)
-            
+
             url = self.chat_url
-            
+
         else:
             # Use completions format
             payload = {
@@ -95,12 +92,12 @@ class VLLMAdapter:
                 "max_tokens": max_tokens,
                 "stream": False,
             }
-            
+
             # Add any extra parameters
             if extra:
                 extra_filtered = {k: v for k, v in extra.items() if v is not None}
                 payload.update(extra_filtered)
-            
+
             url = self.completions_url
 
         try:
@@ -109,10 +106,10 @@ class VLLMAdapter:
                 url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=300  # 5 minute timeout
+                timeout=300,  # 5 minute timeout
             )
             response.raise_for_status()
-            
+
             result = response.json()
             latency_ms = (time.time() - start_time) * 1000
 
@@ -131,7 +128,7 @@ class VLLMAdapter:
 
             # Extract usage information if provided by vLLM
             usage = result.get("usage", {})
-            
+
             # Calculate token counts - use vLLM's counts if available, otherwise estimate
             if "prompt_tokens" in usage and "completion_tokens" in usage:
                 input_tokens = usage["prompt_tokens"]

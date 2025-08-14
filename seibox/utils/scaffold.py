@@ -12,164 +12,140 @@ console = Console()
 
 def create_new_suite(name: str, description: Optional[str] = None):
     """Create a new evaluation suite with configuration and dataset scaffolding.
-    
+
     Args:
         name: Name of the evaluation suite (e.g., "safety", "toxicity")
         description: Optional description of what this suite evaluates
     """
     # Validate name
     if not name.isalpha():
-        raise ValueError("Suite name must contain only letters (no spaces, numbers, or special characters)")
-    
+        raise ValueError(
+            "Suite name must contain only letters (no spaces, numbers, or special characters)"
+        )
+
     name = name.lower()
-    
+
     # Paths to create
     config_path = Path(f"configs/eval_{name}.yaml")
     dataset_dir = Path(f"seibox/datasets/{name}")
     seed_file = dataset_dir / "seed.jsonl"
-    
+
     console.print(f"[bold blue]Creating evaluation suite: {name}[/bold blue]")
-    
+
     # Check if suite already exists
     if config_path.exists():
         raise ValueError(f"Suite '{name}' already exists at {config_path}")
-    
+
     # Create dataset directory
     dataset_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"  Created dataset directory: {dataset_dir}")
-    
+
     # Create configuration file
     config = create_config_template(name, description)
-    
+
     config_path.parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, "w") as f:
         yaml.dump(config, f, default_flow_style=False, indent=2)
-    
+
     console.print(f"  Created config file: {config_path}")
-    
+
     # Create seed dataset file with examples
     seed_data = create_seed_template(name)
-    
+
     with open(seed_file, "w") as f:
         for record in seed_data:
             f.write(json.dumps(record) + "\n")
-    
+
     console.print(f"  Created seed dataset: {seed_file} ({len(seed_data)} examples)")
-    
+
     # Create scoring module template
     scoring_file = Path(f"seibox/scoring/{name}.py")
     scoring_content = create_scoring_template(name)
-    
+
     with open(scoring_file, "w") as f:
         f.write(scoring_content)
-    
+
     console.print(f"  Created scoring module: {scoring_file}")
-    
+
     # Show next steps
     console.print(f"\n[bold green]Suite '{name}' created successfully![/bold green]")
     console.print(f"\n[yellow]Next steps:[/yellow]")
     console.print(f"  1. Edit {seed_file} to add your evaluation examples")
     console.print(f"  2. Update {scoring_file} to implement your scoring logic")
     console.print(f"  3. Customize {config_path} for your evaluation settings")
-    console.print(f"  4. Test with: seibox run --suite {name} --model openai:gpt-4o-mini --config {config_path} --out runs/{name}_test.jsonl")
+    console.print(
+        f"  4. Test with: seibox run --suite {name} --model openai:gpt-4o-mini --config {config_path} --out runs/{name}_test.jsonl"
+    )
 
 
 def create_config_template(name: str, description: Optional[str] = None) -> dict:
     """Create a configuration template for the new suite.
-    
+
     Args:
         name: Suite name
         description: Optional description
-        
+
     Returns:
         Configuration dictionary
     """
     desc = description or f"Evaluation suite for {name} safety metrics"
-    
+
     return {
-        "metadata": {
-            "name": name,
-            "description": desc,
-            "version": "0.1.0"
-        },
+        "metadata": {"name": name, "description": desc, "version": "0.1.0"},
         "run": {
             "temperature": 0.0,
             "max_tokens": 512,
             "rate_limit": 10,
             "cache": True,
-            "retry": {
-                "max_attempts": 3,
-                "backoff_factor": 2.0
-            }
+            "retry": {"max_attempts": 3, "backoff_factor": 2.0},
         },
-        "datasets": {
-            name: {
-                "sampling": {
-                    "n": 10,
-                    "seed": 42
-                }
-            }
-        },
-        "scoring": {
-            name: {
-                "enabled": True,
-                "strict_mode": False
-            }
-        },
-        "mitigations": [
-            "prompt_hardening@0.1.0"
-        ],
-        "reporting": {
-            "html_path": f"reports/{name}_report.html",
-            "dashboard": True
-        }
+        "datasets": {name: {"sampling": {"n": 10, "seed": 42}}},
+        "scoring": {name: {"enabled": True, "strict_mode": False}},
+        "mitigations": ["prompt_hardening@0.1.0"],
+        "reporting": {"html_path": f"reports/{name}_report.html", "dashboard": True},
     }
 
 
 def create_seed_template(name: str) -> list:
     """Create seed dataset template for the new suite.
-    
+
     Args:
         name: Suite name
-        
+
     Returns:
         List of example InputRecord dictionaries
     """
     # Create generic examples that users can customize
     examples = []
-    
+
     for i in range(5):
         record = {
             "id": f"{name}_{i:03d}",
             "suite": name,
             "prompt": f"Example prompt {i+1} for {name} evaluation. Replace with actual test cases.",
-            "metadata": {
-                "category": "example",
-                "difficulty": "medium",
-                "source": "template"
-            },
+            "metadata": {"category": "example", "difficulty": "medium", "source": "template"},
             "gold": {
                 "should_block": i % 2 == 0,  # Alternate true/false for variety
                 "expected_category": "safe" if i % 2 == 1 else "unsafe",
-                "notes": f"Expected behavior for example {i+1}"
-            }
+                "notes": f"Expected behavior for example {i+1}",
+            },
         }
         examples.append(record)
-    
+
     return examples
 
 
 def create_scoring_template(name: str) -> str:
     """Create scoring module template for the new suite.
-    
+
     Args:
         name: Suite name
-        
+
     Returns:
         Python code as string for the scoring module
     """
     class_name = name.capitalize()
-    
+
     return f'''"""Scoring logic for {name} evaluation suite."""
 
 import re
