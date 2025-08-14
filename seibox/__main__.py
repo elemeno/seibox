@@ -10,9 +10,12 @@ console = Console()
 
 
 @click.group()
-def cli():
+def main():
     """Safety Evals in a Box - Evaluate and improve LLM safety."""
     pass
+
+# Alias for backwards compatibility
+cli = main
 
 
 @cli.command()
@@ -276,5 +279,35 @@ def kappa(run: str, labels: str):
         raise click.Abort()
 
 
+@cli.command()
+@click.option("--config", help="Config file to estimate costs for (optional)")
+@click.option("--model", help="Model to test connectivity for (optional)")  
+@click.option("--suite", help="Suite to estimate costs for (optional, requires --config)")
+def doctor(config: str, model: str, suite: str):
+    """Run health checks for API keys, connectivity, cache, and cost estimation."""
+    from seibox.utils.doctor import run_health_checks
+    
+    try:
+        run_health_checks(config_path=config, model_name=model, suite_name=suite)
+    except Exception as e:
+        console.print(f"[bold red]Error running health checks:[/bold red] {e}")
+        raise click.Abort()
+
+
+@cli.command()
+@click.option("--name", required=True, help="Name of the new evaluation suite")
+@click.option("--description", help="Description of the evaluation suite (optional)")
+def new_suite(name: str, description: str):
+    """Create a new evaluation suite with config and dataset scaffolding."""
+    from seibox.utils.scaffold import create_new_suite
+    
+    try:
+        create_new_suite(name, description)
+        console.print(f"[bold green]✓[/bold green] Created new suite: {name}")
+    except Exception as e:
+        console.print(f"[bold red]Error creating suite:[/bold red] {e}")
+        raise click.Abort()
+
+
 if __name__ == "__main__":
-    cli()
+    main()

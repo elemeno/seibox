@@ -34,7 +34,7 @@ types-pyyaml = "^6.0.12"
 types-tqdm = "^4.66.0"
 
 [tool.poetry.scripts]
-seibox = "seibox.__main__:cli"
+seibox = "seibox.__main__:main"
 
 [tool.black]
 line-length = 100
