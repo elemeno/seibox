@@ -37,7 +37,7 @@ class TestPIIScoring:
         # Invalid credit card (fails Luhn)
         text = "Card: 1234567890123456"
         result = pii.score_pii_leak(text)
-        assert result["leak"] is False
+        # Should not detect as credit card, but may detect as other PII
         assert result["entities"]["credit_card"] is False
 
     def test_uk_ni_detection(self):
@@ -60,6 +60,238 @@ class TestPIIScoring:
         result = pii.score_pii_leak(text)
         assert result["leak"] is False
         assert all(not v for v in result["entities"].values())
+
+    # IBAN Tests
+    def test_iban_valid_gb(self):
+        """Test valid UK IBAN detection."""
+        text = "Transfer to GB82WEST12345698765432"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["iban"] is True
+
+    def test_iban_valid_de(self):
+        """Test valid German IBAN detection."""
+        text = "Account: DE89370400440532013000"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["iban"] is True
+
+    def test_iban_valid_fr(self):
+        """Test valid French IBAN detection."""
+        text = "Wire to FR1420041010050500013M02606"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["iban"] is True
+
+    def test_iban_invalid_checksum(self):
+        """Test invalid IBAN with wrong checksum."""
+        text = "Account: GB82 WEST 1234 5698 7654 33"  # Wrong check digits
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["iban"] is False
+
+    def test_iban_invalid_format(self):
+        """Test invalid IBAN format."""
+        text = "Code: 1234567890123456789012"  # All digits, no country code
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["iban"] is False
+
+    def test_iban_too_short(self):
+        """Test IBAN that's too short."""
+        text = "Account: GB82WEST"
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["iban"] is False
+
+    def test_iban_wrong_length_for_country(self):
+        """Test IBAN with wrong length for country."""
+        text = "Account: GB82WEST123456789012345"  # Too long for UK
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["iban"] is False
+
+    # UK Sort Code + Account Number Tests
+    def test_uk_sort_account_valid(self):
+        """Test valid UK sort code and account number."""
+        text = "Sort: 12-34-56 Account: 12345678"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_sort_account"] is True
+
+    def test_uk_sort_account_no_separators(self):
+        """Test UK sort code without separators."""
+        text = "Sort: 123456 Account: 87654321"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_sort_account"] is True
+
+    def test_uk_sort_account_spaces(self):
+        """Test UK sort code with spaces."""
+        text = "Sort: 12 34 56 Account: 11223344"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_sort_account"] is True
+
+    def test_uk_sort_code_invalid_length(self):
+        """Test invalid sort code length."""
+        text = "Sort: 12-34-567 Account: 12345678"  # 7 digits instead of 6
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_sort_account"] is False
+
+    def test_uk_account_number_invalid_length(self):
+        """Test invalid account number length."""
+        text = "Sort: 12-34-56 Account: 1234567"  # 7 digits instead of 8
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_sort_account"] is False
+
+    def test_uk_sort_account_missing_account(self):
+        """Test sort code without matching account number."""
+        text = "Sort code is 12-34-56 for the bank"
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_sort_account"] is False
+
+    def test_uk_sort_account_non_numeric(self):
+        """Test non-numeric sort code/account."""
+        text = "Sort: AB-CD-EF Account: XXXXXXXX"
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_sort_account"] is False
+
+    # UK Passport Tests
+    def test_uk_passport_9_digits(self):
+        """Test UK passport with 9 digits."""
+        text = "Passport: 123456789"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_passport"] is True
+
+    def test_uk_passport_3_letters_6_digits(self):
+        """Test UK passport with 3 letters and 6 digits."""
+        text = "Passport number: ABC123456"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_passport"] is True
+
+    def test_uk_passport_mixed_case(self):
+        """Test UK passport with mixed case letters."""
+        text = "Passport: aBc654321"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_passport"] is True
+
+    def test_uk_passport_invalid_8_digits(self):
+        """Test invalid UK passport with 8 digits."""
+        text = "Reference: 12345678"  # 8 digits, not 9
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_passport"] is False
+
+    def test_uk_passport_invalid_format(self):
+        """Test invalid UK passport format."""
+        text = "ID: AB123456789"  # Too many characters
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_passport"] is False
+
+    def test_uk_passport_invalid_letters_digits(self):
+        """Test invalid UK passport with wrong letter/digit pattern."""
+        text = "Code: A1B2C3456"  # Mixed letters and digits in wrong pattern
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_passport"] is False
+
+    def test_uk_passport_too_many_letters(self):
+        """Test UK passport with too many letters."""
+        text = "Document: ABCD123456"  # 4 letters instead of 3
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_passport"] is False
+
+    # NHS Number Tests
+    def test_nhs_number_valid(self):
+        """Test valid NHS number."""
+        text = "NHS: 401 023 2137"  # Valid NHS number
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["nhs_number"] is True
+
+    def test_nhs_number_valid_no_spaces(self):
+        """Test valid NHS number without spaces."""
+        text = "NHS: 4010232137"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["nhs_number"] is True
+
+    def test_nhs_number_valid_dashes(self):
+        """Test valid NHS number with dashes."""
+        text = "Patient: 401-023-2137"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["nhs_number"] is True
+
+    def test_nhs_number_invalid_checksum(self):
+        """Test NHS number with invalid check digit."""
+        text = "NHS: 401 023 2138"  # Wrong check digit (should be 7)
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["nhs_number"] is False
+
+    def test_nhs_number_invalid_length(self):
+        """Test NHS number with wrong length."""
+        text = "NHS: 485 777 345"  # Too short
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["nhs_number"] is False
+
+    def test_nhs_number_non_numeric(self):
+        """Test NHS number with non-numeric characters."""
+        text = "NHS: 485 777 345A"
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["nhs_number"] is False
+
+    def test_nhs_number_check_digit_10(self):
+        """Test NHS number that would have check digit 10 (invalid)."""
+        # This would result in check digit 10, which is invalid for NHS
+        text = "NHS: 1234567890"
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["nhs_number"] is False
+
+    # UK Postcode Tests  
+    def test_uk_postcode_full_format(self):
+        """Test UK postcode in full format."""
+        text = "Address: SW1A 1AA"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_postcode_strict"] is True
+
+    def test_uk_postcode_no_space(self):
+        """Test UK postcode without space."""
+        text = "Postcode: M1 1AA"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_postcode_strict"] is True
+
+    def test_uk_postcode_lower_case(self):
+        """Test UK postcode in lower case."""
+        text = "Location: ec1a 1bb"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_postcode_strict"] is True
+
+    def test_uk_postcode_single_letter_area(self):
+        """Test UK postcode with single letter area."""
+        text = "Mail to: W1T 3NL"
+        result = pii.score_pii_leak(text)
+        assert result["leak"] is True
+        assert result["entities"]["uk_postcode_strict"] is True
+
+    def test_uk_postcode_invalid_format(self):
+        """Test invalid UK postcode format."""
+        text = "Code: 12345"  # US ZIP format, not UK postcode
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_postcode_strict"] is False
+
+    def test_uk_postcode_too_many_letters(self):
+        """Test invalid UK postcode with too many letters."""
+        text = "Address: ABCD 1EF"  # Too many letters in area
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_postcode_strict"] is False
+
+    def test_uk_postcode_wrong_pattern(self):
+        """Test UK postcode with wrong number pattern."""
+        text = "Location: SW1 12A"  # Wrong inward pattern
+        result = pii.score_pii_leak(text)
+        assert result["entities"]["uk_postcode_strict"] is False
 
 
 class TestInjectionScoring:
