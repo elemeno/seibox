@@ -145,5 +145,106 @@ def labeler(run: str):
         console.print("\n[yellow]Labeler stopped[/yellow]")
 
 
+@cli.command()
+@click.option("--run", required=True, help="Path to evaluation results JSONL file")
+@click.option("--labels", required=True, help="Path to human labels JSONL file")
+def kappa(run: str, labels: str):
+    """Measure agreement between automated judge and human labels using Cohen's kappa."""
+    from pathlib import Path
+    from rich.table import Table
+    from seibox.scoring.calibration import (
+        load_judge_labels,
+        load_human_labels,
+        compute_kappa,
+        interpret_kappa,
+    )
+
+    # Validate input files
+    run_path = Path(run)
+    labels_path = Path(labels)
+
+    if not run_path.exists():
+        console.print(f"[bold red]Error:[/bold red] Run file not found: {run}")
+        raise click.Abort()
+
+    if not labels_path.exists():
+        console.print(f"[bold red]Error:[/bold red] Labels file not found: {labels}")
+        raise click.Abort()
+
+    try:
+        # Load labels
+        console.print(f"[blue]Loading judge labels from:[/blue] {run}")
+        judge_labels = load_judge_labels(str(run_path))
+
+        console.print(f"[blue]Loading human labels from:[/blue] {labels}")
+        human_labels = load_human_labels(str(labels_path))
+
+        console.print(f"Judge labels: {len(judge_labels)} records")
+        console.print(f"Human labels: {len(human_labels)} records")
+
+        # Compute kappa
+        result = compute_kappa(judge_labels, human_labels)
+
+        # Display results
+        console.print("\n[bold green]Agreement Analysis[/bold green]")
+
+        # Main metrics
+        kappa_value = result["kappa"]
+        if kappa_value is not None:
+            console.print(
+                f"Cohen's κ: [bold]{kappa_value:.3f}[/bold] ({interpret_kappa(kappa_value)})"
+            )
+        else:
+            console.print("Cohen's κ: [bold red]Cannot compute[/bold red] (insufficient data)")
+
+        # Counts table
+        counts = result["agreement_counts"]
+        console.print(f"\nCounts:")
+        console.print(f"  Agree: [green]{counts['agree']}[/green]")
+        console.print(f"  Disagree: [red]{counts['disagree']}[/red]")
+        console.print(f"  Human Unsure: [yellow]{counts['unsure']}[/yellow]")
+        console.print(f"  Total Compared: {result['total_compared']} (excludes Unsure)")
+
+        # Confusion matrix
+        cm = result["confusion_matrix"]
+        if result["total_compared"] > 0:
+            console.print(f"\n[bold]Confusion Matrix[/bold]")
+
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Judge → Human ↓", style="dim", width=20)
+            table.add_column("Judge: Correct", justify="center")
+            table.add_column("Judge: Incorrect", justify="center")
+
+            table.add_row(
+                "Human: Correct",
+                str(cm["judge_correct_human_correct"]),
+                str(cm["judge_incorrect_human_correct"]),
+            )
+            table.add_row(
+                "Human: Incorrect",
+                str(cm["judge_correct_human_incorrect"]),
+                str(cm["judge_incorrect_human_incorrect"]),
+            )
+
+            console.print(table)
+
+            if cm["human_unsure"] > 0:
+                console.print(f"\nHuman Unsure: {cm['human_unsure']} (excluded from κ calculation)")
+
+        # Summary
+        if result["total_compared"] == 0:
+            console.print(f"\n[bold yellow]Warning:[/bold yellow] No comparable labels found")
+        elif kappa_value is not None and kappa_value >= 0.6:
+            console.print(f"\n[bold green]✓[/bold green] Good agreement (κ ≥ 0.6)")
+        elif kappa_value is not None and kappa_value >= 0.4:
+            console.print(f"\n[bold yellow]~[/bold yellow] Moderate agreement (0.4 ≤ κ < 0.6)")
+        else:
+            console.print(f"\n[bold red]![/bold red] Poor agreement (κ < 0.4)")
+
+    except Exception as e:
+        console.print(f"[bold red]Error computing kappa:[/bold red] {e}")
+        raise click.Abort()
+
+
 if __name__ == "__main__":
     cli()
