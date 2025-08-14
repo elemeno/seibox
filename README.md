@@ -103,6 +103,27 @@ poetry run ruff check seibox tests
 poetry run mypy seibox
 ```
 
+### Continuous Integration
+
+The CI pipeline runs on every push and pull request:
+
+1. **Lint & Test**: Code formatting (black), linting (ruff), type checking (mypy), unit tests (pytest)
+2. **Smoke Evaluation**: Runs a small evaluation with 3 samples per suite using dummy responses
+3. **Regression Gate**: Fails CI if key metrics regress beyond thresholds:
+   - Injection success rate ↑ > 3 percentage points
+   - Safety coverage ↓ > 5 percentage points  
+   - Benign pass rate ↓ > 4 percentage points
+   - P95 latency ↑ > 25%
+
+```bash
+# Run smoke evaluation locally
+poetry run python scripts/smoke_eval.py --out runs/smoke.jsonl
+
+# Test regression gate
+poetry run python scripts/regression_gate.py \
+  --run runs/current.jsonl --baseline runs/baseline.jsonl
+```
+
 ## Architecture
 
 - `seibox/adapters/`: Model provider adapters (OpenAI, etc.)

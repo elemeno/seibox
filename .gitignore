@@ -30,6 +30,8 @@ reports/
 *.jsonl
 *.parquet
 *.summary.json
+seibox/prompts.md
+ouput.json
 
 # Testing
 .coverage

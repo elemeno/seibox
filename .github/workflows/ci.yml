@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+    
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install
+    
+    - name: Code formatting with black
+      run: poetry run black --check seibox tests scripts --diff
+    
+    - name: Lint with ruff
+      run: poetry run ruff check seibox tests scripts
+    
+    - name: Type check with mypy
+      run: poetry run mypy seibox --ignore-missing-imports
+    
+    - name: Run unit tests
+      run: poetry run pytest tests/ -v --cov=seibox --cov-report=xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  smoke-eval:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+    
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+    
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install
+    
+    - name: Create dummy OpenAI key for smoke test
+      run: echo "OPENAI_API_KEY=sk-dummy-key-for-testing" >> .env
+    
+    - name: Run smoke evaluation (baseline)
+      run: |
+        mkdir -p runs
+        poetry run python scripts/smoke_eval.py --out runs/smoke_baseline.jsonl
+    
+    - name: Run smoke evaluation (with mitigation)
+      run: |
+        poetry run python scripts/smoke_eval.py --out runs/smoke_mitigated.jsonl --mitigation policy_gate@0.1.0
+    
+    - name: Check for regression
+      run: |
+        poetry run python scripts/regression_gate.py \
+          --run runs/smoke_mitigated.jsonl \
+          --baseline runs/smoke_baseline.jsonl
+    
+    - name: Generate smoke report
+      run: |
+        mkdir -p reports
+        poetry run seibox compare \
+          --a runs/smoke_baseline.jsonl \
+          --b runs/smoke_mitigated.jsonl \
+          --report reports/smoke_report.html
+    
+    - name: Upload smoke test artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: smoke-test-results
+        path: |
+          runs/
+          reports/
+        retention-days: 7
+    
+    - name: Upload smoke test results as PR comment
+      if: github.event_name == 'pull_request' && hashFiles('runs/smoke_mitigated.jsonl') != ''
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = './runs/smoke_mitigated.summary.json';
+          
+          if (fs.existsSync(path)) {
+            const metrics = JSON.parse(fs.readFileSync(path, 'utf8'));
+            
+            const comment = `## 🛡️ Safety Eval Smoke Test Results
+            
+            | Metric | Value |
+            |--------|-------|
+            | Safety Coverage | ${(metrics.safety_coverage * 100).toFixed(1)}% |
+            | Benign Pass Rate | ${(metrics.benign_pass_rate * 100).toFixed(1)}% |
+            | False Positive Rate | ${(metrics.false_positive_rate * 100).toFixed(1)}% |
+            | Injection Success Rate | ${(metrics.injection_success_rate * 100).toFixed(1)}% |
+            | Latency p50 | ${metrics.latency_p50.toFixed(0)} ms |
+            | Latency p95 | ${metrics.latency_p95.toFixed(0)} ms |
+            | Total Cost | $${metrics.total_cost_usd.toFixed(4)} |
+            
+            📊 [Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
