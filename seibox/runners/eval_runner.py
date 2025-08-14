@@ -14,6 +14,7 @@ from rich.table import Table
 from seibox.adapters.openai import OpenAIAdapter
 from seibox.adapters.anthropic import AnthropicAdapter
 from seibox.adapters.vllm import VLLMAdapter
+from seibox.adapters.gemini import GeminiAdapter
 from seibox.runners.batch import batch_execute
 from seibox.scoring import aggregate, benign, injection, pii
 from seibox.utils import cache, cost, io, schemas
@@ -143,7 +144,7 @@ def get_adapter(model_name: str) -> Any:
     """Get the appropriate model adapter.
 
     Args:
-        model_name: Model name (e.g., "openai:gpt-4o-mini", "anthropic:claude-3-haiku", "vllm:llama-2-7b")
+        model_name: Model name (e.g., "openai:gpt-4o-mini", "anthropic:claude-3-haiku", "vllm:llama-2-7b", "gemini:gemini-2.0-flash-001")
 
     Returns:
         Model adapter instance
@@ -157,6 +158,9 @@ def get_adapter(model_name: str) -> Any:
     elif model_name.startswith("vllm:"):
         model = model_name.split(":", 1)[1]
         return VLLMAdapter(model)
+    elif model_name.startswith("gemini:"):
+        model = model_name.split(":", 1)[1]
+        return GeminiAdapter(model)
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 

@@ -237,3 +237,60 @@ models:
       output_per_1k: 0.0      # Free (local compute cost not tracked)
     context_length: 2048
     description: "Vicuna 7B model via vLLM server"
+
+  # ============================================
+  # Google Gemini Models
+  # ============================================
+  
+  # Gemini 2.0 Family (Latest - December 2024)
+  - name: "gemini:gemini-2.0-flash-001"
+    cost:
+      input_per_1k: 0.00005   # $0.05 per 1M tokens (free tier available)
+      output_per_1k: 0.0002   # $0.20 per 1M tokens (free tier available)
+    context_length: 1048576   # 1M token context
+    description: "Latest Gemini 2.0 Flash model with fastest inference and multimodal capabilities"
+    free_tier:
+      rate_limit: "5 RPM, 25 requests/day"
+      note: "Free tier available via Google AI Studio"
+  
+  # Gemini 1.5 Family (Production stable)
+  - name: "gemini:gemini-1.5-pro"
+    cost:
+      input_per_1k: 0.00125   # $1.25 per 1M tokens (64% reduction from previous pricing)
+      output_per_1k: 0.005    # $5.00 per 1M tokens (52% reduction from previous pricing)
+    context_length: 2097152   # 2M token context
+    description: "Most capable Gemini 1.5 model with large context window"
+    rate_limits:
+      free_tier: "2 RPM"
+      paid_tier: "1000 RPM"
+  
+  - name: "gemini:gemini-1.5-flash"
+    cost:
+      input_per_1k: 0.000075  # $0.075 per 1M tokens
+      output_per_1k: 0.0003   # $0.30 per 1M tokens
+    context_length: 1048576   # 1M token context
+    description: "Balanced Gemini 1.5 model optimized for speed and efficiency"
+    rate_limits:
+      free_tier: "15 RPM"
+      paid_tier: "2000 RPM"
+  
+  - name: "gemini:gemini-1.5-flash-8b"
+    cost:
+      input_per_1k: 0.0000375 # $0.0375 per 1M tokens
+      output_per_1k: 0.00015  # $0.15 per 1M tokens
+    context_length: 1048576   # 1M token context  
+    description: "Smaller, faster Gemini 1.5 Flash variant for high-volume use cases"
+    rate_limits:
+      free_tier: "15 RPM"
+      paid_tier: "2000 RPM"
+  
+  # Gemini 1.0 Family (Legacy but stable)
+  - name: "gemini:gemini-1.0-pro"
+    cost:
+      input_per_1k: 0.0005    # $0.50 per 1M tokens
+      output_per_1k: 0.0015   # $1.50 per 1M tokens
+    context_length: 32768     # 32K token context
+    description: "Original Gemini Pro model with proven stability"
+    rate_limits:
+      free_tier: "60 RPM"
+      paid_tier: "1000 RPM"

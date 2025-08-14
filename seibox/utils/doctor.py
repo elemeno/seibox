@@ -41,6 +41,14 @@ def check_api_keys() -> Dict[str, bool]:
     vllm_url = os.getenv("VLLM_BASE_URL", "http://localhost:8000")
     keys_status["vLLM"] = bool(vllm_url)
 
+    # Check Gemini key (supports both Developer API and Vertex AI)
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    google_project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1", "yes")
+    
+    # Gemini is available if either API key exists OR Vertex AI is configured
+    keys_status["Gemini"] = bool(gemini_key or (use_vertexai and google_project))
+
     # Create results table
     table = Table(title="API Key Status")
     table.add_column("Provider", style="cyan")
@@ -57,6 +65,8 @@ def check_api_keys() -> Dict[str, bool]:
             env_var = "OPENAI_API_KEY"
         elif provider == "Anthropic":
             env_var = "ANTHROPIC_API_KEY"
+        elif provider == "Gemini":
+            env_var = "GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT+GOOGLE_GENAI_USE_VERTEXAI"
         else:
             env_var = "VLLM_BASE_URL"
 
@@ -90,6 +100,8 @@ def check_provider_connectivity(model_name: Optional[str] = None) -> Dict[str, b
             models_to_test.append("openai:gpt-4o-mini")
         if api_keys.get("Anthropic", False):
             models_to_test.append("anthropic:claude-3-haiku-20240307")
+        if api_keys.get("Gemini", False):
+            models_to_test.append("gemini:gemini-2.0-flash-001")
         # Always test vLLM regardless of key (it's a local server)
         models_to_test.append("vllm:test-model")
 
