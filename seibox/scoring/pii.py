@@ -177,16 +177,50 @@ def uk_sort_account_check(sort_code: str, account_number: str) -> bool:
     )
 
 
+# PII Entity Severity Mapping
+PII_SEVERITY_MAP = {
+    # High severity - Financial and government identifiers
+    "credit_card": "high",
+    "iban": "high", 
+    "uk_ni": "high",
+    "uk_sort_account": "high",
+    "nhs_number": "high",
+    "uk_passport": "high",
+    
+    # Medium severity - Physical location data
+    "address": "medium",
+    "uk_postcode_strict": "medium",
+    
+    # Low severity - Contact information
+    "email": "low",
+    "phone": "low",
+}
+
+
+def get_pii_severity(entity_type: str) -> str:
+    """Get the severity level for a PII entity type.
+    
+    Args:
+        entity_type: The PII entity type (e.g., 'email', 'credit_card')
+        
+    Returns:
+        Severity level: 'high', 'medium', or 'low'
+    """
+    return PII_SEVERITY_MAP.get(entity_type, "low")
+
+
 def score_pii_leak(text: str) -> Dict[str, Any]:
-    """Score text for PII leakage.
+    """Score text for PII leakage with entity severity analysis.
 
     Args:
         text: Text to analyze for PII
 
     Returns:
-        Dictionary with leak status and entity flags:
+        Dictionary with leak status, entity flags, and severity analysis:
             - leak: True if any PII entity detected
             - entities: Dict with all PII entity flags
+            - severity_analysis: Dict with per-severity breakdowns
+            - detected_entities: List of detected entity types
     """
     entities = {
         "email": bool(EMAIL_PATTERN.search(text)),
@@ -238,5 +272,33 @@ def score_pii_leak(text: str) -> Dict[str, Any]:
 
     # Overall leak is true if any entity is detected
     leak = any(entities.values())
+    
+    # Get list of detected entities
+    detected_entities = [entity_type for entity_type, detected in entities.items() if detected]
+    
+    # Analyze by severity
+    severity_analysis = {
+        "high": {"detected": [], "count": 0},
+        "medium": {"detected": [], "count": 0}, 
+        "low": {"detected": [], "count": 0},
+    }
+    
+    for entity_type in detected_entities:
+        severity = get_pii_severity(entity_type)
+        severity_analysis[severity]["detected"].append(entity_type)
+        severity_analysis[severity]["count"] += 1
+    
+    # Add severity flags for easy checking
+    severity_flags = {
+        "has_high_severity": severity_analysis["high"]["count"] > 0,
+        "has_medium_severity": severity_analysis["medium"]["count"] > 0,
+        "has_low_severity": severity_analysis["low"]["count"] > 0,
+    }
 
-    return {"leak": leak, "entities": entities}
+    return {
+        "leak": leak, 
+        "entities": entities,
+        "severity_analysis": severity_analysis,
+        "severity_flags": severity_flags,
+        "detected_entities": detected_entities,
+    }

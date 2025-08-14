@@ -219,6 +219,88 @@ HTML_TEMPLATE = """
     </div>
     {% endif %}
 
+    {% if entity_metrics or severity_metrics %}
+    <h2>🎯 PII Entity & Severity Analysis</h2>
+    
+    <div class="comparison-table">
+        <div>
+            <h3>Per-Entity Leak Rates</h3>
+            {% if entity_metrics %}
+            <table>
+                <tr>
+                    <th>Entity Type</th>
+                    <th>Severity</th>
+                    <th>Leak Rate</th>
+                    <th>Detected/Total</th>
+                </tr>
+                {% for entity_type, data in entity_metrics.items() %}
+                <tr>
+                    <td>{{ entity_type.replace('_', ' ').title() }}</td>
+                    <td>
+                        <span class="label {% if data.severity == 'high' %}label-leaked{% elif data.severity == 'medium' %}label-blocked{% else %}label-allowed{% endif %}">
+                            {{ data.severity.title() }}
+                        </span>
+                    </td>
+                    <td>{{ "%.1f%%" | format(data.leak_rate * 100) }}</td>
+                    <td>{{ data.detected_count }}/{{ data.total_count }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p>No entity-specific metrics available</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <h3>Severity-Level Summary</h3>
+            {% if severity_metrics %}
+            <table>
+                <tr>
+                    <th>Severity Level</th>
+                    <th>Leak Rate</th>
+                    <th>Records with Leaks</th>
+                    <th>Entity Types</th>
+                </tr>
+                {% for severity, data in severity_metrics.items() %}
+                {% if data.total_records > 0 %}
+                <tr>
+                    <td>
+                        <span class="label {% if severity == 'high' %}label-leaked{% elif severity == 'medium' %}label-blocked{% else %}label-allowed{% endif %}">
+                            {{ severity.title() }}
+                        </span>
+                    </td>
+                    <td>{{ "%.1f%%" | format(data.leak_rate * 100) }}</td>
+                    <td>{{ data.detected_records }}/{{ data.total_records }}</td>
+                    <td>{{ data.entity_types | length }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </table>
+            
+            <h4>Entity Types by Severity</h4>
+            {% for severity, data in severity_metrics.items() %}
+            {% if data.entity_types %}
+            <div class="example-box">
+                <div class="prompt">
+                    <strong>{{ severity.title() }} Severity:</strong>
+                </div>
+                <div class="response">
+                    {% for entity in data.entity_types %}
+                        <span class="label {% if severity == 'high' %}label-leaked{% elif severity == 'medium' %}label-blocked{% else %}label-allowed{% endif %}">
+                            {{ entity.replace('_', ' ').title() }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% else %}
+            <p>No severity-level metrics available</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <h2>🔍 Example Cases</h2>
     
     <h3>PII Detection Examples</h3>
@@ -355,6 +437,10 @@ def generate_report(
             "mitigated": metrics,
         }
 
+    # Extract entity and severity metrics for report
+    entity_metrics = metrics.get("entity_metrics", {})
+    severity_metrics = metrics.get("severity_metrics", {})
+
     # Render template
     template = Template(HTML_TEMPLATE)
     html = template.render(
@@ -370,6 +456,8 @@ def generate_report(
         pii_examples=pii_examples,
         injection_examples=injection_examples,
         benign_examples=benign_examples,
+        entity_metrics=entity_metrics,
+        severity_metrics=severity_metrics,
     )
 
     # Save report

@@ -165,6 +165,133 @@ def display_metric_cards_with_ci(df: pd.DataFrame, file_name: str):
         st.metric(
             "Cost per 1k", f"${metrics.get('cost_per_1k', 0):.4f}", help="Cost per 1000 API calls"
         )
+    
+    # Entity and severity metrics (new section)
+    display_entity_severity_charts(metrics, file_name)
+
+
+def display_entity_severity_charts(metrics: Dict, file_name: str):
+    """Display entity-specific and severity-based PII analysis charts.
+    
+    Args:
+        metrics: Aggregated metrics dictionary
+        file_name: Name of the file for display context
+    """
+    entity_metrics = metrics.get("entity_metrics", {})
+    severity_metrics = metrics.get("severity_metrics", {})
+    
+    if not entity_metrics and not severity_metrics:
+        return
+        
+    st.divider()
+    st.subheader("🎯 PII Entity & Severity Analysis")
+    
+    # Create two columns for entity and severity charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Per-Entity Leak Rates**")
+        if entity_metrics:
+            # Prepare data for entity chart
+            entity_data = []
+            for entity_type, data in entity_metrics.items():
+                entity_data.append({
+                    "Entity": entity_type.replace("_", " ").title(),
+                    "Leak Rate": data["leak_rate"], 
+                    "Severity": data["severity"].title(),
+                    "Detected": data["detected_count"],
+                    "Total": data["total_count"],
+                    "Display": f"{data['leak_rate']:.1%} ({data['detected_count']}/{data['total_count']})"
+                })
+            
+            if entity_data:
+                entity_df = pd.DataFrame(entity_data)
+                
+                # Color mapping for severity
+                severity_colors = {"High": "#e74c3c", "Medium": "#f39c12", "Low": "#27ae60"}
+                
+                # Create bar chart
+                fig = px.bar(
+                    entity_df,
+                    x="Entity",
+                    y="Leak Rate", 
+                    color="Severity",
+                    color_discrete_map=severity_colors,
+                    hover_data=["Detected", "Total"],
+                    title="Leak Rate by PII Entity Type"
+                )
+                
+                fig.update_layout(
+                    height=400,
+                    yaxis=dict(tickformat=".0%", range=[0, 1]),
+                    xaxis_tickangle=-45
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Entity table with details
+                st.write("**Entity Details**")
+                display_df = entity_df[["Entity", "Severity", "Display"]].rename(columns={"Display": "Rate (Detected/Total)"})
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No entity-specific metrics available")
+    
+    with col2:
+        st.write("**Severity-Level Analysis**")
+        if severity_metrics:
+            # Prepare data for severity chart
+            severity_data = []
+            for severity, data in severity_metrics.items():
+                if data.get("total_records", 0) > 0:
+                    severity_data.append({
+                        "Severity": severity.title(),
+                        "Leak Rate": data["leak_rate"],
+                        "Records with Leaks": data["detected_records"],
+                        "Total Records": data["total_records"],
+                        "Entity Types": len(data.get("entity_types", [])),
+                        "Display": f"{data['leak_rate']:.1%} ({data['detected_records']}/{data['total_records']})"
+                    })
+            
+            if severity_data:
+                severity_df = pd.DataFrame(severity_data)
+                
+                # Create horizontal bar chart for severity
+                fig = px.bar(
+                    severity_df,
+                    x="Leak Rate",
+                    y="Severity",
+                    orientation="h",
+                    color="Severity",
+                    color_discrete_map={"High": "#e74c3c", "Medium": "#f39c12", "Low": "#27ae60"},
+                    hover_data=["Records with Leaks", "Total Records", "Entity Types"],
+                    title="Leak Rate by Severity Level"
+                )
+                
+                fig.update_layout(
+                    height=400,
+                    xaxis=dict(tickformat=".0%", range=[0, 1]),
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Severity summary table
+                st.write("**Severity Summary**")
+                display_df = severity_df[["Severity", "Display", "Entity Types"]].rename(columns={
+                    "Display": "Rate (With Leaks/Total)",
+                    "Entity Types": "# Entity Types"
+                })
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                
+                # Show which entity types are in each severity
+                with st.expander("📋 Entity Types by Severity"):
+                    for severity, data in severity_metrics.items():
+                        entity_types = data.get("entity_types", [])
+                        if entity_types:
+                            formatted_entities = [e.replace("_", " ").title() for e in entity_types]
+                            st.write(f"**{severity.title()}:** {', '.join(formatted_entities)}")
+        else:
+            st.info("No severity-level metrics available")
 
 
 def display_confusion_matrix(df: pd.DataFrame, suite: str):
