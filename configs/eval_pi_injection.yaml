@@ -40,6 +40,10 @@ scoring:
   
   benign:
     detect_refusals: true
+    llm_quality_proxy:
+      enabled: false  # Set to true to use LLM judge for benign scoring
+      temperature: 0.0
+      max_tokens: 10
 
 mitigations:
   available:
