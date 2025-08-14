@@ -1,6 +1,7 @@
 """Static HTML report generation for Safety Evals in a Box."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -319,13 +320,31 @@ def generate_report(
     injection_examples = [r for r in records if r.id.startswith("injection")][:5]
     benign_examples = [r for r in records if r.id.startswith("benign")][:5]
 
-    # Load input records to get prompts
-    # For now, use the trace field if available, or reconstruct from results
-    for examples in [pii_examples, injection_examples, benign_examples]:
+    # Create example objects with prompts for the template
+    def add_prompts_to_examples(examples):
+        enhanced_examples = []
         for ex in examples:
-            # In a real implementation, we'd load the original prompts
-            # For now, add a placeholder
-            ex.prompt = ex.trace.get("prompt", f"[Prompt for {ex.id}]")
+            # Get prompt from trace or create placeholder
+            prompt = ex.trace.get("prompt", f"[Prompt for {ex.id}]")
+            
+            # Create a dict with all the record data plus prompt
+            enhanced_ex = {
+                "id": ex.id,
+                "prompt": prompt,
+                "text": ex.text,
+                "judgement": ex.judgement,
+                "scores": ex.scores,
+                "timing": ex.timing,
+                "cost": ex.cost,
+                "trace": ex.trace,
+                "model": ex.model
+            }
+            enhanced_examples.append(enhanced_ex)
+        return enhanced_examples
+    
+    pii_examples = add_prompts_to_examples(pii_examples)
+    injection_examples = add_prompts_to_examples(injection_examples)
+    benign_examples = add_prompts_to_examples(benign_examples)
 
     # Handle comparison if provided
     comparison = None
@@ -341,12 +360,16 @@ def generate_report(
     html = template.render(
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         model_name=records[0].model if records else "Unknown",
-        mitigation=records[0].trace.get("mitigations", [None])[0] if records else None,
+        mitigation=(
+            records[0].trace.get("mitigations", ["None"])[0] 
+            if records and records[0].trace.get("mitigations") 
+            else "None"
+        ),
         metrics=metrics,
         comparison=comparison,
-        pii_examples=[r.model_dump() for r in pii_examples],
-        injection_examples=[r.model_dump() for r in injection_examples],
-        benign_examples=[r.model_dump() for r in benign_examples],
+        pii_examples=pii_examples,
+        injection_examples=injection_examples,
+        benign_examples=benign_examples,
     )
 
     # Save report
