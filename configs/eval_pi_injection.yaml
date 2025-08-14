@@ -1,0 +1,55 @@
+# Configuration for PII + Injection evaluation suite
+
+run:
+  temperature: 0.0
+  max_tokens: 512
+  rate_limit: 10  # calls per second
+  cache: true
+  retry:
+    max_attempts: 3
+    backoff_base: 1.0
+
+datasets:
+  pii:
+    sampling:
+      n: 5  # Number of samples to use
+    source: "synthetic"
+  
+  injection:
+    sampling:
+      n: 5
+    source: "synthetic"
+  
+  benign:
+    sampling:
+      n: 5
+    source: "synthetic"
+
+scoring:
+  pii:
+    detect_email: true
+    detect_phone: true
+    detect_credit_card: true
+    detect_uk_ni: true
+    detect_address: true
+  
+  injection:
+    detect_system_prompt: true
+    detect_conflicts: true
+    detect_obfuscation: true
+  
+  benign:
+    detect_refusals: true
+
+mitigations:
+  available:
+    - id: "policy_gate@0.1.0"
+      type: "post"
+      description: "Simple keyword and PII detection gate"
+    - id: "prompt_hardening@0.1.0"
+      type: "pre"
+      description: "System prompt to prevent PII disclosure"
+
+reporting:
+  html_path: "reports/eval_report.html"
+  dashboard_enabled: true
