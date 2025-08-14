@@ -12,13 +12,13 @@ def compute_cache_key(
     model_name: str, temperature: float, system_hash: str | None, prompt: str
 ) -> str:
     """Compute a deterministic cache key for a completion request.
-    
+
     Args:
         model_name: Name of the model
         temperature: Temperature setting
         system_hash: Hash of the system prompt (if any)
         prompt: The user prompt
-        
+
     Returns:
         Hexadecimal cache key
     """
@@ -29,7 +29,7 @@ def compute_cache_key(
 
 def get_cache_dir() -> Path:
     """Get the cache directory path.
-    
+
     Returns:
         Path to the cache directory
     """
@@ -40,17 +40,17 @@ def get_cache_dir() -> Path:
 
 def get_cached(cache_key: str) -> Optional[Dict[str, Any]]:
     """Retrieve a cached response if it exists.
-    
+
     Args:
         cache_key: The cache key to look up
-        
+
     Returns:
         Cached response dict with text, usage, and latency_ms, or None if not found
     """
     cache_file = get_cache_dir() / f"{cache_key}.json"
     if not cache_file.exists():
         return None
-    
+
     try:
         with open(cache_file, "rb") as f:
             return orjson.loads(f.read())
@@ -60,16 +60,16 @@ def get_cached(cache_key: str) -> Optional[Dict[str, Any]]:
 
 def set_cached(cache_key: str, response: Dict[str, Any]) -> None:
     """Store a response in the cache.
-    
+
     Args:
         cache_key: The cache key to store under
         response: Response dict with text, usage, and latency_ms
-        
+
     Raises:
         IOError: If unable to write to cache
     """
     cache_file = get_cache_dir() / f"{cache_key}.json"
-    
+
     try:
         with open(cache_file, "wb") as f:
             f.write(orjson.dumps(response, option=orjson.OPT_INDENT_2))

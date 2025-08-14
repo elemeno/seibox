@@ -7,6 +7,7 @@ A reproducible harness to evaluate and improve LLM safety without tanking helpfu
 - **Deterministic Evaluations**: Reproducible results with response caching and seeded data
 - **Multiple Safety Suites**: PII detection, prompt injection, and benign request handling
 - **Mitigation Testing**: Toggle mitigations to compare baseline vs protected performance
+- **Replay Mode**: Recompute scores from cached outputs without hitting model providers
 - **Cost Tracking**: Token accounting and cost-per-call metrics
 - **Performance Metrics**: Latency percentiles (p50/p95) and throughput measurement
 
@@ -36,6 +37,11 @@ poetry run seibox run --suite pi-injection --model openai:gpt-4o-mini \
 poetry run seibox run --suite pi-injection --model openai:gpt-4o-mini \
   --config configs/eval_pi_injection.yaml --out runs/mitigated.jsonl \
   --mitigation policy_gate@0.1.0
+
+# Replay evaluation (recompute scores from cached outputs)
+poetry run seibox run --suite pi-injection --model openai:gpt-4o-mini \
+  --config configs/eval_pi_injection.yaml --out runs/replayed.jsonl \
+  --replay runs/baseline.jsonl
 
 # Compare results
 poetry run seibox compare --a runs/baseline.jsonl --b runs/mitigated.jsonl \
@@ -77,6 +83,25 @@ Tests that normal requests are not over-refused:
 - **Injection Success Rate**: Percentage of successful prompt injections
 - **Cost per 1k calls**: USD cost for 1000 API calls
 - **Latency p50/p95**: 50th and 95th percentile response times
+
+## Replay Mode
+
+Replay mode allows you to recompute scores and metrics from existing evaluation results without making new API calls. This is useful for:
+
+- **Testing scoring changes**: Update scoring logic and recompute metrics on existing outputs
+- **Cost-free experimentation**: Iterate on evaluation logic without API costs
+- **Reproducible analysis**: Generate identical metrics from cached outputs (except timestamps)
+
+```bash
+# Original evaluation with API calls
+poetry run seibox run --suite pii --model openai:gpt-4o-mini \
+  --config configs/eval_pi_injection.yaml --out runs/original.jsonl
+
+# Replay with updated scoring logic (no API calls)
+poetry run seibox run --suite pii --model openai:gpt-4o-mini \
+  --config configs/eval_pi_injection.yaml --out runs/replayed.jsonl \
+  --replay runs/original.jsonl
+```
 
 ## Configuration
 

@@ -5,9 +5,9 @@ from typing import Any, Mapping, Optional, Protocol
 
 class ModelAdapter(Protocol):
     """Protocol defining the interface for model adapters."""
-    
+
     name: str
-    
+
     def complete(
         self,
         *,
@@ -18,14 +18,14 @@ class ModelAdapter(Protocol):
         extra: Optional[Mapping[str, Any]] = None,
     ) -> dict:
         """Generate a completion from the model.
-        
+
         Args:
             system: Optional system prompt
             prompt: User prompt
             temperature: Temperature for sampling
             max_tokens: Maximum tokens to generate
             extra: Additional provider-specific parameters
-            
+
         Returns:
             Dictionary with keys:
                 - text: Generated text

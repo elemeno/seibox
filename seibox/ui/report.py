@@ -297,28 +297,28 @@ def generate_report(
     comparison_path: Optional[str] = None,
 ) -> None:
     """Generate an HTML report from evaluation results.
-    
+
     Args:
         results_path: Path to the results JSONL file
         output_path: Path to save the HTML report
         comparison_path: Optional path to baseline results for comparison
     """
     from datetime import datetime
-    
+
     # Load results
     records = [OutputRecord(**r) for r in read_jsonl(results_path)]
-    
+
     if not records:
         raise ValueError(f"No records found in {results_path}")
-    
+
     # Compute metrics
     metrics = aggregate_metrics(records)
-    
+
     # Get examples from each suite
     pii_examples = [r for r in records if r.id.startswith("pii")][:5]
     injection_examples = [r for r in records if r.id.startswith("injection")][:5]
     benign_examples = [r for r in records if r.id.startswith("benign")][:5]
-    
+
     # Load input records to get prompts
     # For now, use the trace field if available, or reconstruct from results
     for examples in [pii_examples, injection_examples, benign_examples]:
@@ -326,7 +326,7 @@ def generate_report(
             # In a real implementation, we'd load the original prompts
             # For now, add a placeholder
             ex.prompt = ex.trace.get("prompt", f"[Prompt for {ex.id}]")
-    
+
     # Handle comparison if provided
     comparison = None
     if comparison_path:
@@ -335,7 +335,7 @@ def generate_report(
             "baseline": aggregate_metrics(baseline_records),
             "mitigated": metrics,
         }
-    
+
     # Render template
     template = Template(HTML_TEMPLATE)
     html = template.render(
@@ -348,12 +348,12 @@ def generate_report(
         injection_examples=[r.model_dump() for r in injection_examples],
         benign_examples=[r.model_dump() for r in benign_examples],
     )
-    
+
     # Save report
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_path, "w") as f:
         f.write(html)
-    
+
     print(f"Report generated: {output_path}")

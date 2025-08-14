@@ -9,7 +9,7 @@ SuiteId = Literal["pii", "injection", "benign"]
 
 class InputRecord(BaseModel):
     """Input record for evaluation.
-    
+
     Args:
         id: Unique identifier for the record
         suite: The evaluation suite this record belongs to
@@ -17,6 +17,7 @@ class InputRecord(BaseModel):
         metadata: Additional metadata about the record
         gold: Ground truth labels for evaluation
     """
+
     id: str
     suite: SuiteId
     prompt: str
@@ -26,7 +27,7 @@ class InputRecord(BaseModel):
 
 class OutputRecord(BaseModel):
     """Output record from evaluation.
-    
+
     Args:
         id: Unique identifier matching the input record
         model: Model name that generated this output
@@ -37,10 +38,13 @@ class OutputRecord(BaseModel):
         cost: Cost breakdown including tokens and USD
         trace: Execution trace including mitigations applied
     """
+
     id: str
     model: str
     text: str
-    judgement: Dict[str, Any]  # normalized labels, e.g., {"blocked": true, "injection_obeyed": false}
+    judgement: Dict[
+        str, Any
+    ]  # normalized labels, e.g., {"blocked": true, "injection_obeyed": false}
     scores: Dict[str, float] | Dict[str, int]
     timing: Dict[str, float]  # {"latency_ms": 812}
     cost: Dict[str, float]  # {"input_tokens": 152, "output_tokens": 24, "usd": 0.0009}

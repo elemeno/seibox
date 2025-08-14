@@ -10,13 +10,13 @@ from pydantic import BaseModel
 
 def read_jsonl(path: str | Path) -> Iterator[Dict[str, Any]]:
     """Read a JSONL file and yield records.
-    
+
     Args:
         path: Path to the JSONL file
-        
+
     Returns:
         Iterator of dictionary records
-        
+
     Raises:
         FileNotFoundError: If the file doesn't exist
         ValueError: If the file contains invalid JSON
@@ -24,7 +24,7 @@ def read_jsonl(path: str | Path) -> Iterator[Dict[str, Any]]:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
-    
+
     with open(path, "rb") as f:
         for line_num, line in enumerate(f, 1):
             if not line.strip():
@@ -37,17 +37,17 @@ def read_jsonl(path: str | Path) -> Iterator[Dict[str, Any]]:
 
 def write_jsonl(path: str | Path, records: List[Dict[str, Any] | BaseModel]) -> None:
     """Write records to a JSONL file.
-    
+
     Args:
         path: Path to write the JSONL file
         records: List of records (dicts or Pydantic models)
-        
+
     Raises:
         IOError: If unable to write to the file
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(path, "wb") as f:
         for record in records:
             if isinstance(record, BaseModel):
@@ -59,23 +59,23 @@ def write_jsonl(path: str | Path, records: List[Dict[str, Any] | BaseModel]) -> 
 
 def write_parquet(path: str | Path, records: List[Dict[str, Any] | BaseModel]) -> None:
     """Write records to a Parquet file.
-    
+
     Args:
         path: Path to write the Parquet file
         records: List of records (dicts or Pydantic models)
-        
+
     Raises:
         IOError: If unable to write to the file
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     data = []
     for record in records:
         if isinstance(record, BaseModel):
             data.append(record.model_dump())
         else:
             data.append(record)
-    
+
     df = pd.DataFrame(data)
     df.to_parquet(path, engine="pyarrow", compression="snappy", index=False)
