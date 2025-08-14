@@ -92,12 +92,27 @@ class OpenAIAdapter:
 
         latency_ms = (time.time() - start_time) * 1000
 
+        text_content = response.choices[0].message.content or ""
+        
+        # Get token usage from response or estimate if not provided
+        if response.usage:
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
+            total_tokens = response.usage.total_tokens
+        else:
+            # Estimate tokens if OpenAI doesn't provide usage info
+            from seibox.utils.tokens import estimate_tokens_for_messages, estimate_tokens
+            
+            input_tokens = estimate_tokens_for_messages(messages, self.model_name)
+            output_tokens = estimate_tokens(text_content, self.model_name)
+            total_tokens = input_tokens + output_tokens
+
         return {
-            "text": response.choices[0].message.content or "",
+            "text": text_content,
             "usage": {
-                "input_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "output_tokens": response.usage.completion_tokens if response.usage else 0,
-                "total_tokens": response.usage.total_tokens if response.usage else 0,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": total_tokens,
             },
             "latency_ms": round(latency_ms, 2),
         }

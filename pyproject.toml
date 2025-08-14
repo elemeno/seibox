@@ -21,12 +21,15 @@ rich = "^13.7.0"
 xxhash = "^3.4.1"
 jinja2 = "^3.1.3"
 openai = "^1.12.0"
+anthropic = "^0.64.0"
+tiktoken = "^0.8.0"
+requests = "^2.31.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.0"
 black = "^24.1.0"
 mypy = "^1.8.0"
-pytest-cov = "^4.1.0"
+pytest-cov = "^6.2.1"
 types-pyyaml = "^6.0.12"
 types-tqdm = "^4.66.0"
 
