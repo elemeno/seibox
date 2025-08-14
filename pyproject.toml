@@ -24,6 +24,9 @@ openai = "^1.12.0"
 anthropic = "^0.64.0"
 tiktoken = "^0.8.0"
 requests = "^2.31.0"
+scipy = "^1.16.1"
+numpy = "^2.3.2"
+plotly = "^6.3.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.0"
