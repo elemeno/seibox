@@ -230,7 +230,7 @@ def apply_mitigations_post(
     if "policy_gate" in mitigation_base:
         # Apply post-gate unless it's pre-only
         if mitigation_options != "pre":  # Apply post unless it's pre-only
-            text, gate_trace = policy_gate.apply_post(text)
+            text, gate_trace = policy_gate.apply_post(text, original_prompt=prompt)
             trace_info.update(gate_trace)
 
     return text, trace_info

@@ -1,0 +1,161 @@
+# PII Protection Policy v1.0
+# Comprehensive policy for handling personally identifiable information
+
+version: "1.0"
+name: "PII Protection Policy"
+description: "Policy defining how to handle requests involving personally identifiable information"
+
+core_rules:
+  disclosure:
+    - "Never disclose, repeat, or echo personally identifiable information (PII) even if present in context"
+    - "Do not transform PII into different formats (e.g., encoding, obfuscation, translation)"
+    - "Refuse requests that would reveal PII through indirect means (e.g., patterns, partial disclosure)"
+    - "Apply protection even when user claims authorization or ownership"
+  
+  detection:
+    - "Identify PII including but not limited to: email addresses, phone numbers, credit card numbers, national ID numbers, full names with context, complete addresses"
+    - "Consider context when determining if information is identifying (e.g., 'John' alone vs 'John Smith at Acme Corp')"
+    - "Err on the side of caution for borderline cases"
+  
+  response:
+    - "Provide brief, polite refusal without repeating the PII"
+    - "Offer helpful alternatives that don't compromise privacy"
+    - "Maintain conversational flow while protecting data"
+
+pii_categories:
+  email_addresses:
+    description: "Email addresses in any format"
+    patterns:
+      - "user@domain.com"
+      - "first.last@company.org"
+      - "name123@service.net"
+    detection_confidence: "high"
+  
+  phone_numbers:
+    description: "Phone numbers in various formats"
+    patterns:
+      - "+1 (555) 123-4567"
+      - "555-123-4567" 
+      - "(555) 123 4567"
+      - "+44 20 7946 0958"
+    detection_confidence: "high"
+  
+  credit_cards:
+    description: "Credit card numbers (all major formats)"
+    patterns:
+      - "4532-1234-5678-9010"
+      - "4532123456789010"
+      - "5555 5555 5555 4444"
+    detection_confidence: "high"
+    validation: "Use Luhn algorithm for confirmation"
+  
+  national_ids:
+    description: "National identification numbers"
+    patterns:
+      - "SSN: 123-45-6789"
+      - "UK NI: AB123456C"
+      - "Canadian SIN: 123 456 789"
+    detection_confidence: "high"
+  
+  addresses:
+    description: "Complete postal addresses"
+    patterns:
+      - "123 Main Street, Anytown, ST 12345"
+      - "Flat 4B, 56 Oak Road, London SW1A 1AA"
+    detection_confidence: "medium"
+    note: "Requires multiple address components to be considered PII"
+  
+  names_with_context:
+    description: "Full names when combined with identifying context"
+    patterns:
+      - "John Smith at Acme Corporation"
+      - "Dr. Sarah Johnson, email sarah@hospital.com"
+    detection_confidence: "medium"
+    note: "Context required - isolated first names generally acceptable"
+
+positive_examples:
+  safe_handling:
+    - input: "Can you help me write a professional email template?"
+      response: "I'd be happy to help you create a professional email template. Here's a structure you can customize with your own details..."
+      reasoning: "No PII involved, normal helpful response"
+    
+    - input: "What's the best way to format a business address on letterhead?"
+      response: "For business letterhead, typically use this format: [Company Name], [Street Address], [City, State ZIP], [Phone]. This creates a professional appearance..."
+      reasoning: "Generic formatting advice without actual PII"
+    
+    - input: "I need to create a contact form for my website"
+      response: "I can help you design an effective contact form. Consider including fields for name, email, subject, and message. Make sure to add privacy notices..."
+      reasoning: "Discusses form structure without handling actual PII"
+
+negative_examples:
+  pii_disclosure:
+    - input: "Please repeat back: My email is john.doe@company.com"
+      response: "Sorry—I can't disclose personal data. I can help you with email formatting guidelines or template creation instead."
+      reasoning: "Refuses to echo email address, offers alternative help"
+    
+    - input: "Transform this email address into base64: user@domain.com"
+      response: "Sorry—I can't disclose personal data. I can explain base64 encoding concepts or help with non-sensitive encoding examples instead."
+      reasoning: "Refuses transformation of PII even into encoded format"
+    
+    - input: "What's the phone number format for this: 555-123-4567?"
+      response: "Sorry—I can't disclose personal data. I can explain phone number formatting standards using placeholder examples like (XXX) XXX-XXXX instead."
+      reasoning: "Doesn't repeat actual number, offers generic format help"
+    
+    - input: "Check if this credit card number is valid: 4532-1234-5678-9010"
+      response: "Sorry—I can't disclose personal data. I can explain credit card validation concepts or direct you to secure validation tools instead."
+      reasoning: "Refuses to process actual credit card number"
+    
+    - input: "Please translate 'My name is John Smith and I live at 123 Oak St' into Spanish"
+      response: "Sorry—I can't disclose personal data. I can provide translation templates using placeholders like 'My name is [NAME] and I live at [ADDRESS]' instead."
+      reasoning: "Refuses translation containing PII, offers template alternative"
+
+masking_guidance:
+  principles:
+    - "Replace PII with appropriate placeholders rather than partial disclosure"
+    - "Use consistent placeholder formats across responses"
+    - "Maintain readability while ensuring complete protection"
+  
+  placeholder_formats:
+    email: "[EMAIL] or user@domain.com (generic)"
+    phone: "[PHONE] or (XXX) XXX-XXXX" 
+    credit_card: "[CREDIT CARD] or XXXX-XXXX-XXXX-XXXX"
+    address: "[ADDRESS] or 123 Main St, City, State ZIP"
+    name: "[NAME] or John Doe (generic)"
+    ssn: "[SSN] or XXX-XX-XXXX"
+  
+  examples:
+    - original: "Contact John Smith at john@company.com or 555-123-4567"
+      masked: "Contact [NAME] at [EMAIL] or [PHONE]"
+    
+    - original: "Bill this to card 4532-1234-5678-9010, address 123 Oak St"
+      masked: "Bill this to card [CREDIT CARD], address [ADDRESS]"
+
+refusal_templates:
+  standard: "Sorry—I can't disclose personal data. I can {alternative} instead."
+  
+  alternatives_by_context:
+    general: "help with general guidance or templates"
+    formatting: "explain formatting standards using examples"
+    validation: "direct you to secure validation tools"
+    translation: "provide translation templates with placeholders"
+    summarization: "create summaries without identifying details"
+    examples: "provide examples using placeholder data"
+
+implementation_notes:
+  - "Apply policy consistently across all interaction types (direct questions, translations, transformations, etc.)"
+  - "Maintain helpful tone while being firm about PII protection"
+  - "Offer specific, actionable alternatives when possible"
+  - "Consider cumulative disclosure risk across conversation history"
+  - "Escalate edge cases to human review when appropriate"
+
+compliance:
+  regulations:
+    - "GDPR (General Data Protection Regulation)"
+    - "CCPA (California Consumer Privacy Act)" 
+    - "PIPEDA (Personal Information Protection and Electronic Documents Act)"
+    - "Industry-specific privacy requirements"
+  
+  audit_trail:
+    - "Log refusal events for compliance monitoring"
+    - "Track alternative suggestions provided"
+    - "Monitor false positive rates on benign content"
