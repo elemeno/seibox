@@ -1,0 +1,19 @@
+# Test config with intentional typos to test error handling
+
+run:
+  temprature: 0.0  # Typo: should be "temperature"
+  max_tokens: 512
+  rate_limt: 10    # Typo: should be "rate_limit"
+  cache: true
+  retry:
+    max_attemps: 3  # Typo: should be "max_attempts"
+    backoff_base: 1.0
+
+dataset:  # Typo: should be "datasets"
+  pii:
+    sampling:
+      n: 5
+
+scring:  # Typo: should be "scoring"
+  pii:
+    strict_mode: false

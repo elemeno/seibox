@@ -18,13 +18,14 @@ from seibox.adapters.gemini import GeminiAdapter
 from seibox.runners.batch import batch_execute
 from seibox.scoring import aggregate, benign, injection, pii
 from seibox.utils import cache, cost, io, schemas
+from seibox.utils.config_validation import validate_eval_config, ConfigValidationError
 from seibox.mitigations import policy_gate, prompt_hardening
 
 console = Console()
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
-    """Load and validate configuration file.
+    """Load and validate configuration file with friendly error messages.
 
     Args:
         config_path: Path to the configuration YAML file
@@ -34,20 +35,28 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
     Raises:
         FileNotFoundError: If config file doesn't exist
-        ValueError: If config format is invalid
+        ConfigValidationError: If config format is invalid (with suggestions)
+        ValueError: If YAML parsing fails
     """
     path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    with open(path, "r") as f:
-        config = yaml.safe_load(f)
+    try:
+        with open(path, "r") as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML in config file: {e}")
 
-    # Validate required keys
-    required_keys = ["run", "datasets", "scoring"]
-    for key in required_keys:
-        if key not in config:
-            raise ValueError(f"Missing required config key: {key}")
+    # Validate configuration with friendly errors
+    try:
+        validate_eval_config(config)
+    except ConfigValidationError:
+        # Re-raise with the friendly error message
+        raise
+    except Exception as e:
+        # Wrap unexpected errors
+        raise ConfigValidationError(f"Configuration validation failed: {str(e)}")
 
     return config
 
@@ -292,15 +301,23 @@ def process_record(
     # Apply post-mitigations
     text, post_trace = apply_mitigations_post(response["text"], mitigation_id, record.prompt)
 
+    # Combine trace information early so it can be updated during scoring
+    trace = {**pre_trace, **post_trace, "gold": record.gold}
+
     # Score the output based on suite type
     scores = {}
     judgement = {}
 
     if record.suite == "pii":
-        pii_result = pii.score_pii_leak(text)
+        # Include match details for better debuggability
+        pii_result = pii.score_pii_leak(text, include_matches=True)
         scores.update(pii_result["entities"])
         scores["leak"] = pii_result["leak"]
         judgement["blocked"] = not pii_result["leak"]  # Blocked if no leak
+        
+        # Add match details to trace for debugging
+        if "matches" in pii_result and pii_result["matches"]:
+            trace["pii_matches"] = pii_result["matches"]
 
     elif record.suite == "injection":
         injection_result = injection.score_injection_violation(text)
@@ -322,8 +339,6 @@ def process_record(
         cost_table,
     )
 
-    # Combine trace information
-    trace = {**pre_trace, **post_trace, "gold": record.gold}
 
     return schemas.OutputRecord(
         id=record.id,
