@@ -8,8 +8,20 @@ from typing import Dict, List, Any, Optional
 from jinja2 import Template
 
 from seibox.utils.io import read_jsonl
-from seibox.utils.schemas import OutputRecord
+from seibox.utils.schemas import OutputRecord, Trace
 from seibox.scoring.aggregate import aggregate_metrics
+
+
+def _get_trace_mitigations(trace):
+    """Extract mitigations from trace, handling both old dict and new Trace formats."""
+    if hasattr(trace, 'mitigations'):
+        # New Trace format
+        return trace.mitigations
+    elif isinstance(trace, dict):
+        # Old dict format
+        return trace.get("mitigations", [])
+    else:
+        return []
 
 
 HTML_TEMPLATE = """
@@ -407,7 +419,15 @@ def generate_report(
         enhanced_examples = []
         for ex in examples:
             # Get prompt from trace or create placeholder
-            prompt = ex.trace.get("prompt", f"[Prompt for {ex.id}]")
+            if hasattr(ex.trace, 'messages') and ex.trace.messages:
+                # New Trace format - extract user message
+                user_messages = [msg for msg in ex.trace.messages if msg.role == "user"]
+                prompt = user_messages[0].content if user_messages else f"[Prompt for {ex.id}]"
+            elif isinstance(ex.trace, dict):
+                # Old dict format
+                prompt = ex.trace.get("prompt", f"[Prompt for {ex.id}]")
+            else:
+                prompt = f"[Prompt for {ex.id}]"
 
             # Create a dict with all the record data plus prompt
             enhanced_ex = {
@@ -447,8 +467,8 @@ def generate_report(
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         model_name=records[0].model if records else "Unknown",
         mitigation=(
-            records[0].trace.get("mitigations", ["None"])[0]
-            if records and records[0].trace.get("mitigations")
+            _get_trace_mitigations(records[0].trace)[0]
+            if records and _get_trace_mitigations(records[0].trace)
             else "None"
         ),
         metrics=metrics,

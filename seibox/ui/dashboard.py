@@ -525,7 +525,7 @@ def main():
     # Main content area
     if "dataframes" in ss and ss.dataframes:
         tabs = st.tabs(
-            ["📈 Overview", "📊 Stratified Analysis", "🔄 Flips Explorer", "📋 Raw Data"]
+            ["📈 Overview", "📊 Stratified Analysis", "🔄 Flips Explorer", "💬 Transcripts", "📋 Raw Data"]
         )
 
         with tabs[0]:  # Overview
@@ -698,7 +698,92 @@ def main():
             else:
                 st.info("Load at least 2 result files to compare flips")
 
-        with tabs[3]:  # Raw Data
+        with tabs[3]:  # Transcripts
+            st.header("💬 Conversation Transcripts")
+            
+            for file_path, df in ss.dataframes.items():
+                st.subheader(f"🗂️ {Path(file_path).name}")
+                
+                # Filter records with trace data
+                if 'trace' in df.columns:
+                    # Create a selectbox to choose a record
+                    record_options = [f"{row['id']} - {row['text'][:50]}..." for _, row in df.iterrows()]
+                    if record_options:
+                        selected_idx = st.selectbox(
+                            "Select a conversation to view:",
+                            range(len(record_options)),
+                            format_func=lambda i: record_options[i],
+                            key=f"transcript_select_{file_path}"
+                        )
+                        
+                        # Get the selected record
+                        selected_record = df.iloc[selected_idx]
+                        trace = selected_record['trace']
+                        
+                        # Display conversation
+                        st.subheader("📝 Conversation")
+                        
+                        if isinstance(trace, dict) and 'messages' in trace:
+                            messages = trace['messages']
+                        elif hasattr(trace, 'messages'):
+                            messages = trace.messages
+                        else:
+                            st.warning("No conversation messages found in trace")
+                            messages = []
+                        
+                        if messages:
+                            for i, msg in enumerate(messages):
+                                role = msg.get('role') if isinstance(msg, dict) else msg.role
+                                content = msg.get('content') if isinstance(msg, dict) else msg.content
+                                redacted = msg.get('redacted', False) if isinstance(msg, dict) else msg.redacted
+                                
+                                # Role-based styling
+                                if role == "system":
+                                    st.write("🤖 **System:**")
+                                    if redacted:
+                                        st.info("🔒 System prompt redacted for privacy")
+                                    else:
+                                        st.code(content, language="text")
+                                elif role == "user":
+                                    st.write("👤 **User:**")
+                                    st.markdown(f"> {content}")
+                                elif role == "assistant":
+                                    st.write("🤖 **Assistant:**")
+                                    if redacted:
+                                        st.warning("⚠️ Response was modified by post-processing")
+                                    st.markdown(content)
+                                
+                                if i < len(messages) - 1:
+                                    st.divider()
+                        else:
+                            st.info("No conversation messages available")
+                        
+                        # Display trace metadata
+                        st.subheader("🔍 Trace Metadata")
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            if isinstance(trace, dict):
+                                st.metric("Conversation ID", trace.get("conversation_id", "N/A"))
+                                st.metric("System Prompt Hash", trace.get("system_prompt_hash", "N/A"))
+                                mitigations = trace.get("mitigations", [])
+                            else:
+                                st.metric("Conversation ID", getattr(trace, 'conversation_id', "N/A"))
+                                st.metric("System Prompt Hash", getattr(trace, 'system_prompt_hash', "N/A"))
+                                mitigations = getattr(trace, 'mitigations', [])
+                        
+                        with col2:
+                            st.metric("Model", selected_record['model'])
+                            if mitigations:
+                                st.write("**Mitigations Applied:**")
+                                for mitigation in mitigations:
+                                    st.code(mitigation)
+                            else:
+                                st.write("**No mitigations applied**")
+                else:
+                    st.warning("No trace data available in this file")
+
+        with tabs[4]:  # Raw Data
             st.header("Raw Data")
 
             for file_path, df in ss.dataframes.items():

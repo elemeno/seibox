@@ -471,6 +471,96 @@ def render(path: str, n: int, out: str):
         console.print(f"  {preview}")
 
 
+@cli.command("sanitize-run")
+@click.option("--run", required=True, help="Path to evaluation results JSONL file to sanitize")
+@click.option("--out", required=True, help="Output path for sanitized results")
+@click.option("--redact-system", is_flag=True, help="Redact system prompts (replace with hash)")
+@click.option("--redact-raw", is_flag=True, help="Remove raw responses before post-processing")
+def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool):
+    """Sanitize evaluation results for public sharing by redacting sensitive information."""
+    import json
+    from pathlib import Path
+    from seibox.utils.io import read_jsonl, write_jsonl
+    from seibox.utils.schemas import OutputRecord, Trace, Message
+    
+    try:
+        # Load results
+        console.print(f"[blue]Loading results from:[/blue] {run}")
+        records = [OutputRecord(**r) for r in read_jsonl(run)]
+        
+        if not records:
+            console.print(f"[bold red]No records found in {run}[/bold red]")
+            raise click.Abort()
+        
+        console.print(f"Found {len(records)} records to sanitize")
+        
+        # Sanitize each record
+        sanitized_records = []
+        for record in records:
+            # Create a copy of the record
+            sanitized_record = record.model_copy(deep=True)
+            
+            # Handle trace sanitization
+            if isinstance(record.trace, dict):
+                # Old format - convert to new format if possible
+                trace_data = record.trace.copy()
+                
+                # Redact system prompt if requested
+                if redact_system:
+                    trace_data.pop("system_prompt_preview", None)
+                    if "messages" in trace_data:
+                        for msg in trace_data["messages"]:
+                            if msg.get("role") == "system":
+                                msg["content"] = f"[Hash: {trace_data.get('system_prompt_hash', 'unknown')}]"
+                                msg["redacted"] = True
+                
+                # Remove raw responses if requested
+                if redact_raw:
+                    trace_data.pop("assistant_raw", None)
+                
+                sanitized_record.trace = trace_data
+                
+            elif isinstance(record.trace, Trace):
+                # New format - work with Trace object
+                trace = record.trace.model_copy(deep=True)
+                
+                # Redact system prompt if requested
+                if redact_system:
+                    trace.system_prompt_preview = None
+                    trace.include_system_full = False
+                    
+                    # Redact system messages
+                    for msg in trace.messages:
+                        if msg.role == "system":
+                            msg.content = f"[Hash: {trace.system_prompt_hash}]"
+                            msg.redacted = True
+                
+                # Remove raw responses if requested
+                if redact_raw:
+                    trace.assistant_raw = None
+                
+                sanitized_record.trace = trace
+            
+            sanitized_records.append(sanitized_record)
+        
+        # Save sanitized results
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        write_jsonl(str(out_path), sanitized_records)
+        
+        console.print(f"[bold green]✓[/bold green] Sanitized {len(sanitized_records)} records")
+        console.print(f"[green]Saved to:[/green] {out}")
+        
+        # Show sanitization summary
+        console.print("\n[bold]Sanitization applied:[/bold]")
+        console.print(f"  System prompts redacted: {'Yes' if redact_system else 'No'}")
+        console.print(f"  Raw responses removed: {'Yes' if redact_raw else 'No'}")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error sanitizing run:[/bold red] {e}")
+        raise click.Abort()
+
+
 @cli.command()
 @click.option("--sample", default="SMOKE", help="Sample mode: SMOKE, FULL, or N=<number>")
 @click.option("--out", default="runs/landscape", help="Output directory for results")

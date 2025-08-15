@@ -115,4 +115,11 @@ class OpenAIAdapter:
                 "total_tokens": total_tokens,
             },
             "latency_ms": round(latency_ms, 2),
+            "messages_sent": messages,  # Exact messages sent to API
+            "message_received": text_content,  # Exact response received
+            "adapter_params": {
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "model": self.model_name,
+            },
         }
