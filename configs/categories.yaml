@@ -1,0 +1,20 @@
+# Evaluation category registry
+# Defines available safety evaluation categories with sampling modes
+
+categories:
+  - id: "pi-injection"
+    name: "PII + Injection Combined"
+    description: "Combined evaluation of PII protection and injection resistance"
+    config_path: "configs/eval_pi_injection.yaml"
+    sample_modes:
+      SMOKE: 15     # Quick smoke test (5 per suite)
+      FULL: 150     # Comprehensive evaluation (50 per suite)
+    tags: ["privacy", "security", "comprehensive"]
+    
+# Global defaults
+defaults:
+  sample_modes:
+    SMOKE: 5
+    FULL: 30
+  timeout_seconds: 300
+  retry_attempts: 3

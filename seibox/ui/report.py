@@ -468,3 +468,281 @@ def generate_report(
         f.write(html)
 
     print(f"Report generated: {output_path}")
+
+
+def generate_model_reports(plan, reports_dir: str) -> None:
+    """Generate per-model HTML reports for multiple categories.
+    
+    Args:
+        plan: Completed evaluation plan
+        reports_dir: Directory to save reports in
+    """
+    from collections import defaultdict
+    
+    # Group results by model
+    model_results = defaultdict(list)
+    
+    for job in plan.jobs:
+        if job.status == "completed":
+            result_file = Path(job.output_path)
+            if result_file.exists():
+                model_results[job.model].append({
+                    'category': job.category,
+                    'result_file': str(result_file),
+                    'job': job
+                })
+    
+    # Generate report for each model
+    reports_dir = Path(reports_dir)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    
+    for model, categories in model_results.items():
+        # Sanitize model name for filename
+        safe_model_name = model.replace(":", "_").replace("/", "_")
+        output_path = reports_dir / f"{safe_model_name}.html"
+        
+        # Load all results for this model
+        all_records = []
+        category_summaries = {}
+        
+        for category_data in categories:
+            records = read_jsonl(category_data['result_file'])
+            records = [OutputRecord(**r) for r in records]
+            all_records.extend(records)
+            
+            # Get summary for this category
+            summary_path = Path(category_data['result_file']).with_suffix('.summary.json')
+            if summary_path.exists():
+                with open(summary_path, 'r') as f:
+                    category_summaries[category_data['category']] = json.load(f)
+        
+        # Generate combined metrics
+        combined_metrics = aggregate_metrics(all_records)
+        
+        # Create multi-category template
+        multi_template = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ model_name }} - Safety Evaluation Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        h3 { color: #5a6c7d; margin-top: 20px; }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .category-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .category-header {
+            background: #ecf0f1;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        .status-success { color: #27ae60; }
+        .status-warning { color: #f39c12; }
+        .status-danger { color: #e74c3c; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛡️ {{ model_name }} Safety Evaluation</h1>
+    
+    <div class="category-section">
+        <div class="category-header">
+            <h2>📊 Overall Performance Summary</h2>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">{{ categories|length }}</div>
+                <div class="metric-label">Categories Evaluated</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ combined_metrics.total_calls }}</div>
+                <div class="metric-label">Total API Calls</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${{ "%.4f"|format(combined_metrics.get('cost', {}).get('total_usd', 0)) }}</div>
+                <div class="metric-label">Total Cost</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ combined_metrics.get('latency_p95', 0)|round }}ms</div>
+                <div class="metric-label">P95 Latency</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="comparison-grid">
+        {% for category, summary in category_summaries.items() %}
+        <div class="category-section">
+            <div class="category-header">
+                <h3>{{ category|title }} Category</h3>
+            </div>
+            
+            <table>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+                {% if summary.safety_coverage is defined %}
+                <tr>
+                    <td>Safety Coverage</td>
+                    <td class="{% if summary.safety_coverage >= 0.8 %}status-success{% elif summary.safety_coverage >= 0.6 %}status-warning{% else %}status-danger{% endif %}">
+                        {{ "%.1f"|format(summary.safety_coverage * 100) }}%
+                    </td>
+                </tr>
+                {% endif %}
+                {% if summary.benign_pass_rate is defined %}
+                <tr>
+                    <td>Benign Pass Rate</td>
+                    <td class="{% if summary.benign_pass_rate >= 0.8 %}status-success{% elif summary.benign_pass_rate >= 0.6 %}status-warning{% else %}status-danger{% endif %}">
+                        {{ "%.1f"|format(summary.benign_pass_rate * 100) }}%
+                    </td>
+                </tr>
+                {% endif %}
+                {% if summary.injection_success_rate is defined %}
+                <tr>
+                    <td>Injection Success Rate</td>
+                    <td class="{% if summary.injection_success_rate <= 0.1 %}status-success{% elif summary.injection_success_rate <= 0.3 %}status-warning{% else %}status-danger{% endif %}">
+                        {{ "%.1f"|format(summary.injection_success_rate * 100) }}%
+                    </td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td>Cost per 1K</td>
+                    <td>${{ "%.4f"|format(summary.cost_per_1k) }}</td>
+                </tr>
+                <tr>
+                    <td>P95 Latency</td>
+                    <td>{{ summary.latency_p95|round }}ms</td>
+                </tr>
+                <tr>
+                    <td>Sample Size</td>
+                    <td>{{ summary.total_calls }}</td>
+                </tr>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="category-section">
+        <div class="category-header">
+            <h2>📈 Performance Analysis</h2>
+        </div>
+        
+        <h3>Key Insights</h3>
+        <ul>
+            {% set avg_safety = category_summaries.values() | selectattr('safety_coverage', 'defined') | map(attribute='safety_coverage') | list %}
+            {% if avg_safety %}
+            <li><strong>Average Safety Coverage:</strong> {{ "%.1f"|format((avg_safety | sum / avg_safety | length) * 100) }}% across {{ avg_safety | length }} categories</li>
+            {% endif %}
+            
+            {% set avg_benign = category_summaries.values() | selectattr('benign_pass_rate', 'defined') | map(attribute='benign_pass_rate') | list %}
+            {% if avg_benign %}
+            <li><strong>Average Benign Pass Rate:</strong> {{ "%.1f"|format((avg_benign | sum / avg_benign | length) * 100) }}% (helpfulness measure)</li>
+            {% endif %}
+            
+            {% set total_cost = category_summaries.values() | map(attribute='cost.total_usd', default=0) | sum %}
+            <li><strong>Total Evaluation Cost:</strong> ${{ "%.4f"|format(total_cost) }}</li>
+            
+            {% set categories_with_issues = category_summaries.values() | selectattr('safety_coverage', 'defined') | selectattr('safety_coverage', '<', 0.8) | list %}
+            {% if categories_with_issues %}
+            <li><strong>Categories Needing Attention:</strong> {{ categories_with_issues | length }} categories with safety coverage below 80%</li>
+            {% endif %}
+        </ul>
+    </div>
+    
+    <div class="category-section">
+        <div class="category-header">
+            <h2>ℹ️ Report Metadata</h2>
+        </div>
+        
+        <table>
+            <tr>
+                <td><strong>Model:</strong></td>
+                <td>{{ model_name }}</td>
+            </tr>
+            <tr>
+                <td><strong>Generated:</strong></td>
+                <td>{{ timestamp }}</td>
+            </tr>
+            <tr>
+                <td><strong>Categories:</strong></td>
+                <td>{{ categories | join(', ') }}</td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
+        """
+        
+        # Render template
+        template = Template(multi_template)
+        html_content = template.render(
+            model_name=model,
+            categories=[cat['category'] for cat in categories],
+            category_summaries=category_summaries,
+            combined_metrics=combined_metrics,
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+        # Write report
+        with open(output_path, 'w') as f:
+            f.write(html_content)

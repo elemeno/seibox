@@ -57,10 +57,14 @@ models:
   
   # GPT-4o Family (Current production)
   - name: "openai:gpt-4o-mini"
+    enabled: true
     cost:
       input_per_1k: 0.00015  # $0.15 per 1M tokens
       output_per_1k: 0.0006   # $0.60 per 1M tokens
     context_length: 128000
+    rate_limit:
+      rpm: 10000              # Requests per minute
+      burst: 200              # Burst allowance
     description: "Most cost-effective GPT-4o variant"
   
   - name: "openai:gpt-4o"
@@ -148,10 +152,14 @@ models:
   
   # Claude 3.5 Family (Updated pricing)
   - name: "anthropic:claude-3-5-sonnet-20241022"
+    enabled: true
     cost:
       input_per_1k: 0.003     # $3 per 1M tokens
       output_per_1k: 0.015    # $15 per 1M tokens
     context_length: 200000
+    rate_limit:
+      rpm: 4000               # Requests per minute
+      burst: 100              # Burst allowance
     description: "Claude 3.5 Sonnet with advanced reasoning"
   
   - name: "anthropic:claude-3-5-haiku-20241022"
@@ -244,10 +252,14 @@ models:
   
   # Gemini 2.0 Family (Latest - December 2024)
   - name: "gemini:gemini-2.0-flash-001"
+    enabled: true
     cost:
       input_per_1k: 0.00005   # $0.05 per 1M tokens (free tier available)
       output_per_1k: 0.0002   # $0.20 per 1M tokens (free tier available)
     context_length: 1048576   # 1M token context
+    rate_limit:
+      rpm: 1000               # Requests per minute
+      burst: 60               # Burst allowance
     description: "Latest Gemini 2.0 Flash model with fastest inference and multimodal capabilities"
     free_tier:
       rate_limit: "5 RPM, 25 requests/day"

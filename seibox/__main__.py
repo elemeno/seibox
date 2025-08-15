@@ -471,5 +471,93 @@ def render(path: str, n: int, out: str):
         console.print(f"  {preview}")
 
 
+@cli.command()
+@click.option("--sample", default="SMOKE", help="Sample mode: SMOKE, FULL, or N=<number>")
+@click.option("--out", default="runs/landscape", help="Output directory for results")
+@click.option("--plan", is_flag=True, help="Show execution plan without running")
+@click.option("--models", help="Comma-separated list of models to include")
+@click.option("--categories", help="Comma-separated list of categories to include")
+@click.option("--workers", default=3, help="Maximum concurrent evaluation jobs")
+def landscape(sample: str, out: str, plan: bool, models: str, categories: str, workers: int):
+    """Run evaluation matrix across all models and safety categories."""
+    from datetime import datetime
+    from pathlib import Path
+    from seibox.runners.matrix import MatrixOrchestrator
+    
+    try:
+        # Parse model and category filters
+        model_list = models.split(",") if models else None
+        category_list = categories.split(",") if categories else None
+        
+        # Create output directory with timestamp if not specified
+        if out == "runs/landscape":
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            out = f"runs/landscape/{timestamp}"
+        
+        orchestrator = MatrixOrchestrator()
+        
+        # Create execution plan
+        console.print("[bold blue]Creating execution plan...[/bold blue]")
+        execution_plan = orchestrator.plan(
+            models=model_list,
+            categories=category_list,
+            sample_mode=sample,
+            outdir=out
+        )
+        
+        # Always show the plan
+        orchestrator.print_plan(execution_plan)
+        
+        if plan:
+            # Dry run - just show the plan
+            console.print("\n[yellow]Dry run complete. Use without --plan to execute.[/yellow]")
+            return
+        
+        # Execute the plan
+        console.print(f"\n[bold green]Executing plan...[/bold green]")
+        completed_plan = orchestrator.execute(execution_plan, resume=True, max_workers=workers)
+        
+        # Generate reports after execution
+        console.print(f"\n[bold blue]Generating reports...[/bold blue]")
+        
+        # Create reports directory
+        reports_dir = Path("out/reports")
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate per-model reports
+        from seibox.ui.report import generate_model_reports
+        try:
+            generate_model_reports(completed_plan, str(reports_dir))
+            console.print(f"[green]✓[/green] Per-model reports generated in {reports_dir}")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not generate per-model reports: {e}[/yellow]")
+        
+        # Generate landscape report
+        from seibox.ui.landscape_report import generate_landscape_report
+        try:
+            landscape_path = reports_dir / "landscape.html"
+            generate_landscape_report(completed_plan, str(landscape_path))
+            console.print(f"[green]✓[/green] Landscape report generated: {landscape_path}")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not generate landscape report: {e}[/yellow]")
+        
+        # Generate data bundle
+        try:
+            from seibox.utils.data_bundle import generate_parquet_bundle
+            bundle_path = Path(out) / "all_runs.parquet"
+            generate_parquet_bundle(completed_plan, str(bundle_path))
+            console.print(f"[green]✓[/green] Data bundle saved: {bundle_path}")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Could not generate data bundle: {e}[/yellow]")
+        
+        console.print(f"\n[bold green]Landscape evaluation complete![/bold green]")
+        console.print(f"Results: {out}")
+        console.print(f"Reports: {reports_dir}")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error running landscape:[/bold red] {e}")
+        raise click.Abort()
+
+
 if __name__ == "__main__":
     main()
