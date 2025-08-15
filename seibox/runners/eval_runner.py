@@ -71,10 +71,45 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
     Returns:
         List of input records
     """
+    import json
+    from seibox.utils.prompt_spec import PromptSpec
+    from seibox.datasets.dsl import to_input_record
+    
     dataset_config = config["datasets"].get(suite_name, {})
     sample_size = dataset_config.get("sampling", {}).get("n", 3)
-
-    # Try to load from seed.jsonl files first
+    
+    # Check if authoring path is specified in config
+    authoring = dataset_config.get("authoring", {})
+    if authoring and "path" in authoring:
+        prompts_file = Path(authoring["path"])
+        if not prompts_file.is_absolute():
+            # Make path relative to project root
+            prompts_file = Path(__file__).parent.parent.parent / authoring["path"]
+        
+        if prompts_file.exists():
+            # Load from prompts.jsonl with templates
+            specs = []
+            with open(prompts_file, 'r') as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        data = json.loads(line)
+                        spec = PromptSpec(**data)
+                        specs.append(spec)
+                    except Exception as e:
+                        console.print(f"[yellow]Warning: Skipping invalid prompt spec: {e}[/yellow]")
+            
+            # Convert specs to input records
+            records = []
+            for spec in specs[:sample_size]:
+                record = to_input_record(spec, suite_override=suite_name)
+                records.append(record)
+            
+            if records:
+                return records
+    
+    # Fall back to seed.jsonl files
     seed_file = Path(__file__).parent.parent / "datasets" / suite_name / "seed.jsonl"
 
     if seed_file.exists():
@@ -82,6 +117,31 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
         records = [schemas.InputRecord(**r) for r in io.read_jsonl(str(seed_file))]
         # Sample the requested number
         return records[:sample_size]
+    
+    # Try prompts.jsonl as a secondary fallback
+    prompts_file = Path(__file__).parent.parent / "datasets" / suite_name / "prompts.jsonl"
+    if prompts_file.exists():
+        specs = []
+        with open(prompts_file, 'r') as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    data = json.loads(line)
+                    spec = PromptSpec(**data)
+                    specs.append(spec)
+                except Exception:
+                    pass
+        
+        # Convert specs to input records
+        records = []
+        for spec in specs[:sample_size]:
+            record = to_input_record(spec, suite_override=suite_name)
+            records.append(record)
+        
+        if records:
+            return records
+    
     else:
         # Fallback to synthetic data for compatibility
         records = []

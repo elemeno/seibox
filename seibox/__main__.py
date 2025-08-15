@@ -306,5 +306,170 @@ def new_suite(name: str, description: str):
         raise click.Abort()
 
 
+@cli.command("validate-prompts")
+@click.option("--path", required=True, help="Path to prompts JSONL file(s), supports wildcards")
+def validate_prompts(path: str):
+    """Validate prompt specification files for correctness."""
+    import json
+    from pathlib import Path
+    from glob import glob
+    from rich.table import Table
+    from seibox.utils.prompt_spec import PromptSpec, PromptSpecValidationResult
+    from seibox.datasets.dsl import validate_template_syntax
+    
+    # Find all matching files
+    files = glob(path, recursive=True)
+    if not files:
+        console.print(f"[bold red]No files found matching:[/bold red] {path}")
+        raise click.Abort()
+    
+    total_valid = 0
+    total_invalid = 0
+    
+    for file_path in sorted(files):
+        console.print(f"\n[bold blue]Validating:[/bold blue] {file_path}")
+        
+        results = []
+        with open(file_path, 'r') as f:
+            for line_num, line in enumerate(f, 1):
+                if not line.strip():
+                    continue
+                    
+                try:
+                    data = json.loads(line)
+                    spec = PromptSpec(**data)
+                    
+                    # Validate template syntax
+                    is_valid, error = validate_template_syntax(spec.template)
+                    if not is_valid:
+                        results.append(PromptSpecValidationResult(
+                            valid=False,
+                            line_number=line_num,
+                            error=f"Template error: {error}"
+                        ))
+                        total_invalid += 1
+                    else:
+                        results.append(PromptSpecValidationResult(
+                            valid=True,
+                            line_number=line_num,
+                            spec=spec
+                        ))
+                        total_valid += 1
+                        
+                except json.JSONDecodeError as e:
+                    results.append(PromptSpecValidationResult(
+                        valid=False,
+                        line_number=line_num,
+                        error=f"Invalid JSON: {str(e)}"
+                    ))
+                    total_invalid += 1
+                except Exception as e:
+                    results.append(PromptSpecValidationResult(
+                        valid=False,
+                        line_number=line_num,
+                        error=str(e)
+                    ))
+                    total_invalid += 1
+        
+        # Display results table
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Line", style="dim", width=6)
+        table.add_column("Status", width=8)
+        table.add_column("ID", width=30)
+        table.add_column("Category", width=10)
+        table.add_column("Error", style="red")
+        
+        for result in results:
+            if result.valid and result.spec:
+                table.add_row(
+                    str(result.line_number),
+                    result.status_emoji,
+                    result.spec.id[:30],
+                    result.spec.category,
+                    ""
+                )
+            else:
+                table.add_row(
+                    str(result.line_number),
+                    result.status_emoji,
+                    "-",
+                    "-",
+                    result.error or "Unknown error"
+                )
+        
+        console.print(table)
+    
+    # Summary
+    console.print(f"\n[bold]Summary:[/bold]")
+    console.print(f"  Valid prompts: [green]{total_valid}[/green]")
+    console.print(f"  Invalid prompts: [red]{total_invalid}[/red]")
+    
+    if total_invalid > 0:
+        raise click.Abort()
+
+
+@cli.command()
+@click.option("--path", required=True, help="Path to prompts JSONL file")
+@click.option("--n", default=5, help="Number of examples to render")
+@click.option("--out", required=True, help="Output path for rendered JSONL")
+def render(path: str, n: int, out: str):
+    """Render prompt templates for preview and human review."""
+    import json
+    from pathlib import Path
+    from rich.progress import track
+    from seibox.utils.prompt_spec import PromptSpec
+    from seibox.datasets.dsl import to_input_record
+    from seibox.utils.io import write_jsonl
+    
+    # Check input file
+    input_path = Path(path)
+    if not input_path.exists():
+        console.print(f"[bold red]File not found:[/bold red] {path}")
+        raise click.Abort()
+    
+    # Load and validate specs
+    specs = []
+    with open(input_path, 'r') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+                spec = PromptSpec(**data)
+                specs.append(spec)
+            except Exception as e:
+                console.print(f"[bold red]Error parsing prompt:[/bold red] {e}")
+                continue
+    
+    if not specs:
+        console.print(f"[bold red]No valid prompts found in:[/bold red] {path}")
+        raise click.Abort()
+    
+    # Limit to requested number
+    specs_to_render = specs[:n]
+    
+    console.print(f"[bold blue]Rendering {len(specs_to_render)} prompts...[/bold blue]")
+    
+    # Render each spec
+    rendered_records = []
+    for spec in track(specs_to_render, description="Rendering"):
+        record = to_input_record(spec)
+        rendered_records.append(record)
+    
+    # Save to output
+    output_path = Path(out)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    write_jsonl(str(output_path), rendered_records)
+    
+    console.print(f"[bold green]✓[/bold green] Rendered {len(rendered_records)} prompts to: {out}")
+    
+    # Show preview of first few
+    console.print("\n[bold]Preview of rendered prompts:[/bold]")
+    for i, record in enumerate(rendered_records[:3], 1):
+        console.print(f"\n[dim]#{i} ({record.id}):[/dim]")
+        preview = record.prompt[:200] + "..." if len(record.prompt) > 200 else record.prompt
+        console.print(f"  {preview}")
+
+
 if __name__ == "__main__":
     main()
