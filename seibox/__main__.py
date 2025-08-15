@@ -10,7 +10,7 @@ console = Console()
 
 
 @click.group()
-def main():
+def main() -> None:
     """Safety Evals in a Box - Evaluate and improve LLM safety."""
     pass
 
@@ -51,7 +51,7 @@ cli = main
     default=None,
     help="Path to existing run results to replay (recompute scores only)",
 )
-def run(suite: str, model: str, config: str, out: str, mitigation: str, replay: str):
+def run(suite: str, model: str, config: str, out: str, mitigation: str, replay: str) -> None:
     """Run an evaluation suite."""
     try:
         run_eval(
@@ -71,7 +71,7 @@ def run(suite: str, model: str, config: str, out: str, mitigation: str, replay: 
 @click.option("--a", required=True, help="Path to baseline results")
 @click.option("--b", required=True, help="Path to comparison results")
 @click.option("--report", required=True, help="Output path for HTML report")
-def compare(a: str, b: str, report: str):
+def compare(a: str, b: str, report: str) -> None:
     """Compare two evaluation runs."""
     from seibox.ui.report import generate_report
 
@@ -85,7 +85,7 @@ def compare(a: str, b: str, report: str):
 
 @cli.command()
 @click.option("--runs", required=True, help="Directory containing run results")
-def dashboard(runs: str):
+def dashboard(runs: str) -> None:
     """Launch the Streamlit dashboard."""
     import subprocess
     import sys
@@ -118,7 +118,7 @@ def dashboard(runs: str):
 
 @cli.command()
 @click.option("--run", required=True, help="Path to evaluation results JSONL file")
-def labeler(run: str):
+def labeler(run: str) -> None:
     """Launch the Streamlit labeling interface."""
     import subprocess
     import sys
@@ -153,7 +153,7 @@ def labeler(run: str):
 @click.option("--config", required=True, help="Path to configuration file")
 @click.option("--model", required=True, help="Model name (e.g., openai:gpt-4o-mini)")
 @click.option("--outdir", required=True, help="Output directory for ablation results")
-def ablate(config: str, model: str, outdir: str):
+def ablate(config: str, model: str, outdir: str) -> None:
     """Run ablation study: baseline vs pre-gate vs pre+post-gate."""
     from pathlib import Path
     from seibox.runners.ablate_runner import run_ablation_study
@@ -178,7 +178,7 @@ def ablate(config: str, model: str, outdir: str):
 @cli.command()
 @click.option("--run", required=True, help="Path to evaluation results JSONL file")
 @click.option("--labels", required=True, help="Path to human labels JSONL file")
-def kappa(run: str, labels: str):
+def kappa(run: str, labels: str) -> None:
     """Measure agreement between automated judge and human labels using Cohen's kappa."""
     from pathlib import Path
     from rich.table import Table
@@ -280,7 +280,7 @@ def kappa(run: str, labels: str):
 @click.option("--config", help="Config file to estimate costs for (optional)")
 @click.option("--model", help="Model to test connectivity for (optional)")
 @click.option("--suite", help="Suite to estimate costs for (optional, requires --config)")
-def doctor(config: str, model: str, suite: str):
+def doctor(config: str, model: str, suite: str) -> None:
     """Run health checks for API keys, connectivity, cache, and cost estimation."""
     from seibox.utils.doctor import run_health_checks
 
@@ -294,7 +294,7 @@ def doctor(config: str, model: str, suite: str):
 @cli.command()
 @click.option("--name", required=True, help="Name of the new evaluation suite")
 @click.option("--description", help="Description of the evaluation suite (optional)")
-def new_suite(name: str, description: str):
+def new_suite(name: str, description: str) -> None:
     """Create a new evaluation suite with config and dataset scaffolding."""
     from seibox.utils.scaffold import create_new_suite
 
@@ -308,7 +308,7 @@ def new_suite(name: str, description: str):
 
 @cli.command("validate-prompts")
 @click.option("--path", required=True, help="Path to prompts JSONL file(s), supports wildcards")
-def validate_prompts(path: str):
+def validate_prompts(path: str) -> None:
     """Validate prompt specification files for correctness."""
     import json
     from pathlib import Path
@@ -412,7 +412,7 @@ def validate_prompts(path: str):
 @click.option("--path", required=True, help="Path to prompts JSONL file")
 @click.option("--n", default=5, help="Number of examples to render")
 @click.option("--out", required=True, help="Output path for rendered JSONL")
-def render(path: str, n: int, out: str):
+def render(path: str, n: int, out: str) -> None:
     """Render prompt templates for preview and human review."""
     import json
     from pathlib import Path
@@ -476,7 +476,7 @@ def render(path: str, n: int, out: str):
 @click.option("--out", required=True, help="Output path for sanitized results")
 @click.option("--redact-system", is_flag=True, help="Redact system prompts (replace with hash)")
 @click.option("--redact-raw", is_flag=True, help="Remove raw responses before post-processing")
-def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool):
+def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool) -> None:
     """Sanitize evaluation results for public sharing by redacting sensitive information."""
     import json
     from pathlib import Path
@@ -568,7 +568,7 @@ def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool):
 @click.option("--models", help="Comma-separated list of models to include")
 @click.option("--categories", help="Comma-separated list of categories to include")
 @click.option("--workers", default=3, help="Maximum concurrent evaluation jobs")
-def landscape(sample: str, out: str, plan: bool, models: str, categories: str, workers: int):
+def landscape(sample: str, out: str, plan: bool, models: str, categories: str, workers: int) -> None:
     """Run evaluation matrix across all models and safety categories."""
     from datetime import datetime
     from pathlib import Path

@@ -15,7 +15,8 @@ def load_templates() -> dict:
     template_path = Path(__file__).parent / "templates.yaml"
 
     with open(template_path, "r") as f:
-        return yaml.safe_load(f)
+        result = yaml.safe_load(f)
+        return dict(result) if isinstance(result, dict) else {}
 
 
 def get_system_prompt(template_name: str = "default_v0") -> Optional[str]:
@@ -30,6 +31,7 @@ def get_system_prompt(template_name: str = "default_v0") -> Optional[str]:
     templates = load_templates()
 
     if template_name in templates:
-        return templates[template_name].get("system_prompt")
+        prompt = templates[template_name].get("system_prompt")
+        return str(prompt) if prompt is not None else None
 
     return None

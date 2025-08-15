@@ -10,7 +10,7 @@ from rich.console import Console
 console = Console()
 
 
-def create_new_suite(name: str, description: Optional[str] = None):
+def create_new_suite(name: str, description: Optional[str] = None) -> None:
     """Create a new evaluation suite with configuration and dataset scaffolding.
 
     Args:

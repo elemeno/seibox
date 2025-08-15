@@ -53,7 +53,8 @@ def get_cached(cache_key: str) -> Optional[Dict[str, Any]]:
 
     try:
         with open(cache_file, "rb") as f:
-            return orjson.loads(f.read())
+            result = orjson.loads(f.read())
+            return dict(result) if isinstance(result, dict) else None
     except (orjson.JSONDecodeError, IOError):
         return None
 

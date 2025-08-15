@@ -10,7 +10,7 @@ from seibox.runners.matrix import Plan
 
 def load_results_data(plan: Plan) -> Dict[str, Any]:
     """Load evaluation results from completed jobs."""
-    results = {}
+    results: Dict[str, Any] = {}
     
     for job in plan.jobs:
         if job.status != "completed":
@@ -41,25 +41,31 @@ def load_results_data(plan: Plan) -> Dict[str, Any]:
 
 def extract_metrics(results: Dict[str, Any]) -> Dict[str, Any]:
     """Extract key metrics from results for visualization."""
+    models_list: List[str] = list(results.keys())
+    categories_list: List[str] = []
+    heatmap_data: Dict[str, Dict[str, Dict[str, float]]] = {}
+    frontier_data: List[Dict[str, Any]] = []
+    error_jobs: List[str] = []
+    
     metrics = {
-        'models': list(results.keys()),
-        'categories': [],
-        'heatmap_data': {},
-        'frontier_data': [],
-        'error_jobs': []
+        'models': models_list,
+        'categories': categories_list,
+        'heatmap_data': heatmap_data,
+        'frontier_data': frontier_data,
+        'error_jobs': error_jobs
     }
     
     # Get all categories
     all_categories = set()
     for model_results in results.values():
         all_categories.update(model_results.keys())
-    metrics['categories'] = sorted(list(all_categories))
+    categories_list[:] = sorted(list(all_categories))
     
     # Initialize heatmap data structure
     for metric in ['safety_coverage', 'benign_pass_rate', 'injection_success_rate', 'cost_per_1k', 'p95_latency']:
-        metrics['heatmap_data'][metric] = {}
-        for model in metrics['models']:
-            metrics['heatmap_data'][metric][model] = {}
+        heatmap_data[metric] = {}
+        for model in models_list:
+            heatmap_data[metric][model] = {}
     
     # Extract metrics for each model-category combination
     for model, categories in results.items():
@@ -89,11 +95,11 @@ def extract_metrics(results: Dict[str, Any]) -> Dict[str, Any]:
                 latency_p95 = summary['latency'].get('p95', 0)
             
             # Store in heatmap data
-            metrics['heatmap_data']['safety_coverage'][model][category] = safety_coverage
-            metrics['heatmap_data']['benign_pass_rate'][model][category] = benign_pass_rate
-            metrics['heatmap_data']['injection_success_rate'][model][category] = injection_success_rate
-            metrics['heatmap_data']['cost_per_1k'][model][category] = cost_per_1k
-            metrics['heatmap_data']['p95_latency'][model][category] = latency_p95
+            heatmap_data['safety_coverage'][model][category] = safety_coverage
+            heatmap_data['benign_pass_rate'][model][category] = benign_pass_rate
+            heatmap_data['injection_success_rate'][model][category] = injection_success_rate
+            heatmap_data['cost_per_1k'][model][category] = cost_per_1k
+            heatmap_data['p95_latency'][model][category] = latency_p95
             
             # Aggregate for frontier chart (average across categories)
             model_frontier_data['safety_coverage'] += safety_coverage
@@ -110,7 +116,7 @@ def extract_metrics(results: Dict[str, Any]) -> Dict[str, Any]:
             model_frontier_data['cost_per_1k'] /= count
             model_frontier_data['p95_latency'] /= count
             
-            metrics['frontier_data'].append(model_frontier_data)
+            frontier_data.append(model_frontier_data)
     
     return metrics
 

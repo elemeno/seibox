@@ -208,7 +208,7 @@ def score_benign_allow(
         except Exception as e:
             logger.error(f"Error using LLM quality proxy: {e}")
             # Fall back to heuristic result on error
-            result["llm_quality_pass"] = None
+            result["llm_quality_pass"] = False
             result["used_llm_proxy"] = False
 
     return result

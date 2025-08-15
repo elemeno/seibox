@@ -89,7 +89,7 @@ def load_human_labels(labels_path: str) -> Dict[str, str]:
     Returns:
         Dictionary mapping record IDs to human labels (Correct/Incorrect/Unsure)
     """
-    human_labels = {}
+    human_labels: Dict[str, str] = {}
 
     if not os.path.exists(labels_path):
         return human_labels
@@ -209,7 +209,7 @@ def _cohen_kappa(judge_labels: List[str], human_labels: List[str]) -> float:
 
     # Create contingency table
     categories = ["Correct", "Incorrect"]
-    table = {}
+    table: Dict[str, Dict[str, int]] = {}
     for cat1 in categories:
         table[cat1] = {}
         for cat2 in categories:
@@ -239,7 +239,7 @@ def _cohen_kappa(judge_labels: List[str], human_labels: List[str]) -> float:
         return 1.0  # Perfect agreement case
 
     kappa = (observed_agreement - expected_agreement) / (1 - expected_agreement)
-    return kappa
+    return float(kappa)
 
 
 def interpret_kappa(kappa: float) -> str:

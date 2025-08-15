@@ -1,7 +1,7 @@
 """IO utilities for reading and writing data files."""
 
 from pathlib import Path
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Sequence
 
 import orjson
 import pandas as pd
@@ -35,7 +35,7 @@ def read_jsonl(path: str | Path) -> Iterator[Dict[str, Any]]:
                 raise ValueError(f"Invalid JSON at line {line_num} in {path}: {e}")
 
 
-def write_jsonl(path: str | Path, records: List[Dict[str, Any] | BaseModel]) -> None:
+def write_jsonl(path: str | Path, records: Sequence[Dict[str, Any] | BaseModel]) -> None:
     """Write records to a JSONL file.
 
     Args:
@@ -57,7 +57,7 @@ def write_jsonl(path: str | Path, records: List[Dict[str, Any] | BaseModel]) -> 
             f.write(orjson.dumps(data, option=orjson.OPT_APPEND_NEWLINE))
 
 
-def write_parquet(path: str | Path, records: List[Dict[str, Any] | BaseModel]) -> None:
+def write_parquet(path: str | Path, records: Sequence[Dict[str, Any] | BaseModel]) -> None:
     """Write records to a Parquet file.
 
     Args:

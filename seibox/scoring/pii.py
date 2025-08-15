@@ -326,8 +326,8 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
             - matches: List of detailed match information (if include_matches=True)
     """
     # Initialize entity detection and match collection
-    entities = {}
-    all_matches = [] if include_matches else None
+    entities: Dict[str, bool] = {}
+    all_matches: List[Dict[str, Any]] = [] if include_matches else []
     
     # Check each entity type and collect matches if requested
     
@@ -476,7 +476,7 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
     detected_entities = [entity_type for entity_type, detected in entities.items() if detected]
     
     # Analyze by severity
-    severity_analysis = {
+    severity_analysis: Dict[str, Dict[str, Any]] = {
         "high": {"detected": [], "count": 0},
         "medium": {"detected": [], "count": 0}, 
         "low": {"detected": [], "count": 0},

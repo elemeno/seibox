@@ -20,7 +20,7 @@ class PolicyManager:
         else:
             self.policies_dir = policies_dir
 
-        self._policies_cache = {}
+        self._policies_cache: Dict[str, Dict[str, Any]] = {}
 
     def load_policy(self, policy_name: str) -> Dict[str, Any]:
         """Load a policy configuration by name.
@@ -46,9 +46,12 @@ class PolicyManager:
         try:
             with open(policy_file, "r") as f:
                 policy = yaml.safe_load(f)
+                if not isinstance(policy, dict):
+                    raise ValueError(f"Policy file must contain a YAML dict: {policy_file}")
+                policy_dict = dict(policy)
 
-            self._policies_cache[policy_name] = policy
-            return policy
+            self._policies_cache[policy_name] = policy_dict
+            return policy_dict
 
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in policy file {policy_file}: {e}")
@@ -94,7 +97,8 @@ class PolicyManager:
         """
         try:
             policy = self.load_policy(policy_name)
-            return policy.get("pii_categories", {})
+            result = policy.get("pii_categories", {})
+            return dict(result) if isinstance(result, dict) else {}
         except (FileNotFoundError, ValueError):
             return {}
 
@@ -109,7 +113,8 @@ class PolicyManager:
         """
         try:
             policy = self.load_policy(policy_name)
-            return policy.get("masking_guidance", {})
+            result = policy.get("masking_guidance", {})
+            return dict(result) if isinstance(result, dict) else {}
         except (FileNotFoundError, ValueError):
             return {}
 
@@ -176,7 +181,8 @@ def should_refuse_content(text: str, pii_result: Dict[str, Any]) -> bool:
         True if content should be refused, False otherwise
     """
     # Refuse if any PII is detected
-    return pii_result.get("leak", False)
+    leak_result = pii_result.get("leak", False)
+    return bool(leak_result)
 
 
 def get_safe_alternative_suggestions(detected_pii: Dict[str, bool]) -> str:

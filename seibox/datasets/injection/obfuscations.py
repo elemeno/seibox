@@ -1,7 +1,7 @@
 """Obfuscation generators for injection attack testing."""
 
 import random
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 
 def generate_rlo_rtl_obfuscated(text: str) -> str:
@@ -113,7 +113,7 @@ def generate_base_encoding_hints(instruction: str) -> List[str]:
     return templates
 
 
-def generate_split_instruction(instruction: str, separators: List[str] = None) -> str:
+def generate_split_instruction(instruction: str, separators: Optional[List[str]] = None) -> str:
     """Generate split word obfuscated instruction.
 
     Args:
@@ -206,7 +206,7 @@ def generate_leet_obfuscated(text: str) -> str:
     return result
 
 
-def generate_combined_obfuscation(text: str, techniques: List[str] = None) -> str:
+def generate_combined_obfuscation(text: str, techniques: Optional[List[str]] = None) -> str:
     """Generate text using multiple obfuscation techniques.
 
     Args:

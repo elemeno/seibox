@@ -8,7 +8,7 @@ import difflib
 class ConfigValidationError(Exception):
     """Custom exception for configuration errors with helpful suggestions."""
     
-    def __init__(self, message: str, path: str = "", suggestions: List[str] = None):
+    def __init__(self, message: str, path: str = "", suggestions: Optional[List[str]] = None):
         """Initialize config validation error.
         
         Args:

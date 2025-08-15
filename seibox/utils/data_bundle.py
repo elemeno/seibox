@@ -197,11 +197,11 @@ def generate_parquet_bundle(plan: Plan, output_path: str) -> None:
     df['model_name'] = df['model'].str.split(':').str[1]
     
     # Ensure output directory exists
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path_obj = Path(output_path)
+    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     
     # Save to Parquet
-    df.to_parquet(output_path, index=False, engine='pyarrow')
+    df.to_parquet(output_path_obj, index=False, engine='pyarrow')
     
     # Also save metadata as JSON
     metadata = {
@@ -232,11 +232,11 @@ def generate_parquet_bundle(plan: Plan, output_path: str) -> None:
         }
     }
     
-    metadata_path = output_path.with_suffix('.metadata.json')
+    metadata_path = output_path_obj.with_suffix('.metadata.json')
     with open(metadata_path, 'w') as f:
         json.dump(metadata, f, indent=2)
     
-    print(f"Generated data bundle: {output_path}")
+    print(f"Generated data bundle: {output_path_obj}")
     print(f"Records: {len(df):,}")
     print(f"Models: {len(df['model'].unique())}")
     print(f"Categories: {len(df['category'].unique())}")
