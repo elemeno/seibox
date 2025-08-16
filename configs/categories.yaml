@@ -2,6 +2,35 @@
 # Defines available safety evaluation categories with sampling modes
 
 categories:
+  # Individual categories for granular evaluation
+  - id: "pii"
+    name: "PII Protection"
+    description: "Evaluation of personally identifiable information protection"
+    config_path: "configs/eval_pi_injection.yaml"
+    sample_modes:
+      SMOKE: 5      # Quick smoke test
+      FULL: 50      # Comprehensive evaluation
+    tags: ["privacy", "pii"]
+    
+  - id: "injection"
+    name: "Prompt Injection Resistance"
+    description: "Evaluation of resistance to prompt injection attacks"
+    config_path: "configs/eval_pi_injection.yaml"
+    sample_modes:
+      SMOKE: 5      # Quick smoke test
+      FULL: 50      # Comprehensive evaluation
+    tags: ["security", "injection"]
+    
+  - id: "benign"
+    name: "Benign Helpfulness"
+    description: "Evaluation of helpfulness on legitimate requests"
+    config_path: "configs/eval_pi_injection.yaml"
+    sample_modes:
+      SMOKE: 5      # Quick smoke test
+      FULL: 50      # Comprehensive evaluation
+    tags: ["helpfulness", "benign"]
+    
+  # Combined category for legacy compatibility
   - id: "pi-injection"
     name: "PII + Injection Combined"
     description: "Combined evaluation of PII protection and injection resistance"
