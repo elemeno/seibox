@@ -253,32 +253,25 @@ def apply_mitigations_pre(
     if not mitigation_id:
         return prompt, system_prompt, trace_info
 
-    # Handle comma-separated mitigation IDs
-    mitigation_ids = [mid.strip() for mid in mitigation_id.split(",")]
-    
-    for mid in mitigation_ids:
-        if not mid:
-            continue
-            
-        # Parse mitigation ID (format: "name@version" or "name@version:options")
-        mitigation_parts = mid.split(":")
-        mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
-        mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
+    # Parse mitigation ID (format: "name@version" or "name@version:options")
+    mitigation_parts = mitigation_id.split(":")
+    mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
+    mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
 
-        # Apply policy gate pre-processing
-        if "policy_gate" in mitigation_base:
-            # Always apply pre-gate unless explicitly disabled
-            if mitigation_options != "post":  # Apply pre unless it's post-only
-                prompt, gate_trace = policy_gate.apply_pre(prompt)
-                trace_info.update(gate_trace)
-                trace_info["mitigations"].append(f"{mitigation_base}:pre")
+    # Apply policy gate pre-processing
+    if "policy_gate" in mitigation_base:
+        # Always apply pre-gate unless explicitly disabled
+        if mitigation_options != "post":  # Apply pre unless it's post-only
+            prompt, gate_trace = policy_gate.apply_pre(prompt)
+            trace_info.update(gate_trace)
+            trace_info["mitigations"].append(f"{mitigation_base}:pre")
 
-        # Apply prompt hardening (always includes system prompt)
-        if "prompt_hardening" in mitigation_base:
-            system_prompt = prompt_hardening.get_system_prompt("default_v0")
-            trace_info["mitigations"].append(mitigation_base)
-            if system_prompt:
-                trace_info["system_prompt_hash"] = xxhash.xxh64_hexdigest(system_prompt)
+    # Apply prompt hardening (always includes system prompt)
+    if "prompt_hardening" in mitigation_base:
+        system_prompt = prompt_hardening.get_system_prompt("default_v0")
+        trace_info["mitigations"].append(mitigation_base)
+        if system_prompt:
+            trace_info["system_prompt_hash"] = xxhash.xxh64_hexdigest(system_prompt)
 
     return prompt, system_prompt, trace_info
 
@@ -301,24 +294,17 @@ def apply_mitigations_post(
     if not mitigation_id:
         return text, trace_info
 
-    # Handle comma-separated mitigation IDs
-    mitigation_ids = [mid.strip() for mid in mitigation_id.split(",")]
-    
-    for mid in mitigation_ids:
-        if not mid:
-            continue
-            
-        # Parse mitigation ID (format: "name@version" or "name@version:options")
-        mitigation_parts = mid.split(":")
-        mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
-        mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
+    # Parse mitigation ID (format: "name@version" or "name@version:options")
+    mitigation_parts = mitigation_id.split(":")
+    mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
+    mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
 
-        # Apply policy gate post-processing
-        if "policy_gate" in mitigation_base:
-            # Apply post-gate unless it's pre-only
-            if mitigation_options != "pre":  # Apply post unless it's pre-only
-                text, gate_trace = policy_gate.apply_post(text, original_prompt=prompt)
-                trace_info.update(gate_trace)
+    # Apply policy gate post-processing
+    if "policy_gate" in mitigation_base:
+        # Apply post-gate unless it's pre-only
+        if mitigation_options != "pre":  # Apply post unless it's pre-only
+            text, gate_trace = policy_gate.apply_post(text, original_prompt=prompt)
+            trace_info.update(gate_trace)
 
     return text, trace_info
 

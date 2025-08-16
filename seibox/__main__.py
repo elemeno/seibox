@@ -316,57 +316,61 @@ def validate_prompts(path: str) -> None:
     from rich.table import Table
     from seibox.utils.prompt_spec import PromptSpec, PromptSpecValidationResult
     from seibox.datasets.dsl import validate_template_syntax
-
+    
     # Find all matching files
     files = glob(path, recursive=True)
     if not files:
         console.print(f"[bold red]No files found matching:[/bold red] {path}")
         raise click.Abort()
-
+    
     total_valid = 0
     total_invalid = 0
-
+    
     for file_path in sorted(files):
         console.print(f"\n[bold blue]Validating:[/bold blue] {file_path}")
-
+        
         results = []
-        with open(file_path, "r") as f:
+        with open(file_path, 'r') as f:
             for line_num, line in enumerate(f, 1):
                 if not line.strip():
                     continue
-
+                    
                 try:
                     data = json.loads(line)
                     spec = PromptSpec(**data)
-
+                    
                     # Validate template syntax
                     is_valid, error = validate_template_syntax(spec.template)
                     if not is_valid:
-                        results.append(
-                            PromptSpecValidationResult(
-                                valid=False, line_number=line_num, error=f"Template error: {error}"
-                            )
-                        )
+                        results.append(PromptSpecValidationResult(
+                            valid=False,
+                            line_number=line_num,
+                            error=f"Template error: {error}"
+                        ))
                         total_invalid += 1
                     else:
-                        results.append(
-                            PromptSpecValidationResult(valid=True, line_number=line_num, spec=spec)
-                        )
+                        results.append(PromptSpecValidationResult(
+                            valid=True,
+                            line_number=line_num,
+                            spec=spec
+                        ))
                         total_valid += 1
-
+                        
                 except json.JSONDecodeError as e:
-                    results.append(
-                        PromptSpecValidationResult(
-                            valid=False, line_number=line_num, error=f"Invalid JSON: {str(e)}"
-                        )
-                    )
+                    results.append(PromptSpecValidationResult(
+                        valid=False,
+                        line_number=line_num,
+                        error=f"Invalid JSON: {str(e)}"
+                    ))
                     total_invalid += 1
                 except Exception as e:
-                    results.append(
-                        PromptSpecValidationResult(valid=False, line_number=line_num, error=str(e))
-                    )
+                    results.append(PromptSpecValidationResult(
+                        valid=False,
+                        line_number=line_num,
+                        error=str(e)
+                    ))
                     total_invalid += 1
-
+        
         # Display results table
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Line", style="dim", width=6)
@@ -374,7 +378,7 @@ def validate_prompts(path: str) -> None:
         table.add_column("ID", width=30)
         table.add_column("Category", width=10)
         table.add_column("Error", style="red")
-
+        
         for result in results:
             if result.valid and result.spec:
                 table.add_row(
@@ -382,7 +386,7 @@ def validate_prompts(path: str) -> None:
                     result.status_emoji,
                     result.spec.id[:30],
                     result.spec.category,
-                    "",
+                    ""
                 )
             else:
                 table.add_row(
@@ -390,16 +394,16 @@ def validate_prompts(path: str) -> None:
                     result.status_emoji,
                     "-",
                     "-",
-                    result.error or "Unknown error",
+                    result.error or "Unknown error"
                 )
-
+        
         console.print(table)
-
+    
     # Summary
     console.print(f"\n[bold]Summary:[/bold]")
     console.print(f"  Valid prompts: [green]{total_valid}[/green]")
     console.print(f"  Invalid prompts: [red]{total_invalid}[/red]")
-
+    
     if total_invalid > 0:
         raise click.Abort()
 
@@ -416,16 +420,16 @@ def render(path: str, n: int, out: str) -> None:
     from seibox.utils.prompt_spec import PromptSpec
     from seibox.datasets.dsl import to_input_record
     from seibox.utils.io import write_jsonl
-
+    
     # Check input file
     input_path = Path(path)
     if not input_path.exists():
         console.print(f"[bold red]File not found:[/bold red] {path}")
         raise click.Abort()
-
+    
     # Load and validate specs
     specs = []
-    with open(input_path, "r") as f:
+    with open(input_path, 'r') as f:
         for line in f:
             if not line.strip():
                 continue
@@ -436,29 +440,29 @@ def render(path: str, n: int, out: str) -> None:
             except Exception as e:
                 console.print(f"[bold red]Error parsing prompt:[/bold red] {e}")
                 continue
-
+    
     if not specs:
         console.print(f"[bold red]No valid prompts found in:[/bold red] {path}")
         raise click.Abort()
-
+    
     # Limit to requested number
     specs_to_render = specs[:n]
-
+    
     console.print(f"[bold blue]Rendering {len(specs_to_render)} prompts...[/bold blue]")
-
+    
     # Render each spec
     rendered_records = []
     for spec in track(specs_to_render, description="Rendering"):
         record = to_input_record(spec)
         rendered_records.append(record)
-
+    
     # Save to output
     output_path = Path(out)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     write_jsonl(str(output_path), rendered_records)
-
+    
     console.print(f"[bold green]✓[/bold green] Rendered {len(rendered_records)} prompts to: {out}")
-
+    
     # Show preview of first few
     console.print("\n[bold]Preview of rendered prompts:[/bold]")
     for i, record in enumerate(rendered_records[:3], 1):
@@ -478,82 +482,80 @@ def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool) -> N
     from pathlib import Path
     from seibox.utils.io import read_jsonl, write_jsonl
     from seibox.utils.schemas import OutputRecord, Trace, Message
-
+    
     try:
         # Load results
         console.print(f"[blue]Loading results from:[/blue] {run}")
         records = [OutputRecord(**r) for r in read_jsonl(run)]
-
+        
         if not records:
             console.print(f"[bold red]No records found in {run}[/bold red]")
             raise click.Abort()
-
+        
         console.print(f"Found {len(records)} records to sanitize")
-
+        
         # Sanitize each record
         sanitized_records = []
         for record in records:
             # Create a copy of the record
             sanitized_record = record.model_copy(deep=True)
-
+            
             # Handle trace sanitization
             if isinstance(record.trace, dict):
                 # Old format - convert to new format if possible
                 trace_data = record.trace.copy()
-
+                
                 # Redact system prompt if requested
                 if redact_system:
                     trace_data.pop("system_prompt_preview", None)
                     if "messages" in trace_data:
                         for msg in trace_data["messages"]:
                             if msg.get("role") == "system":
-                                msg["content"] = (
-                                    f"[Hash: {trace_data.get('system_prompt_hash', 'unknown')}]"
-                                )
+                                msg["content"] = f"[Hash: {trace_data.get('system_prompt_hash', 'unknown')}]"
                                 msg["redacted"] = True
-
+                
                 # Remove raw responses if requested
                 if redact_raw:
                     trace_data.pop("assistant_raw", None)
-
+                
                 sanitized_record.trace = trace_data
-
+                
             elif isinstance(record.trace, Trace):
                 # New format - work with Trace object
                 trace = record.trace.model_copy(deep=True)
-
+                
                 # Redact system prompt if requested
                 if redact_system:
                     trace.system_prompt_preview = None
                     trace.include_system_full = False
-
+                    
                     # Redact system messages
                     for msg in trace.messages:
                         if msg.role == "system":
                             msg.content = f"[Hash: {trace.system_prompt_hash}]"
                             msg.redacted = True
-
+                
                 # Remove raw responses if requested
                 if redact_raw:
                     trace.assistant_raw = None
-
+                
                 sanitized_record.trace = trace
-
+            
             sanitized_records.append(sanitized_record)
-
+        
         # Save sanitized results
         out_path = Path(out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         write_jsonl(str(out_path), sanitized_records)
-
+        
         console.print(f"[bold green]✓[/bold green] Sanitized {len(sanitized_records)} records")
         console.print(f"[green]Saved to:[/green] {out}")
-
+        
         # Show sanitization summary
         console.print("\n[bold]Sanitization applied:[/bold]")
         console.print(f"  System prompts redacted: {'Yes' if redact_system else 'No'}")
         console.print(f"  Raw responses removed: {'Yes' if redact_raw else 'No'}")
-
+        
     except Exception as e:
         console.print(f"[bold red]Error sanitizing run:[/bold red] {e}")
         raise click.Abort()
@@ -566,178 +568,84 @@ def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool) -> N
 @click.option("--models", help="Comma-separated list of models to include")
 @click.option("--categories", help="Comma-separated list of categories to include")
 @click.option("--workers", default=3, help="Maximum concurrent evaluation jobs")
-def landscape(
-    sample: str, out: str, plan: bool, models: str, categories: str, workers: int
-) -> None:
+def landscape(sample: str, out: str, plan: bool, models: str, categories: str, workers: int) -> None:
     """Run evaluation matrix across all models and safety categories."""
     from datetime import datetime
     from pathlib import Path
     from seibox.runners.matrix import MatrixOrchestrator
-
+    
     try:
         # Parse model and category filters
         model_list = models.split(",") if models else None
         category_list = categories.split(",") if categories else None
-
+        
         # Create output directory with timestamp if not specified
         if out == "runs/landscape":
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             out = f"runs/landscape/{timestamp}"
-
+        
         orchestrator = MatrixOrchestrator()
-
+        
         # Create execution plan
         console.print("[bold blue]Creating execution plan...[/bold blue]")
         execution_plan = orchestrator.plan(
-            models=model_list, categories=category_list, sample_mode=sample, outdir=out
+            models=model_list,
+            categories=category_list,
+            sample_mode=sample,
+            outdir=out
         )
-
+        
         # Always show the plan
         orchestrator.print_plan(execution_plan)
-
+        
         if plan:
             # Dry run - just show the plan
             console.print("\n[yellow]Dry run complete. Use without --plan to execute.[/yellow]")
             return
-
+        
         # Execute the plan
         console.print(f"\n[bold green]Executing plan...[/bold green]")
         completed_plan = orchestrator.execute(execution_plan, resume=True, max_workers=workers)
-
+        
         # Generate reports after execution
         console.print(f"\n[bold blue]Generating reports...[/bold blue]")
-
+        
         # Create reports directory
         reports_dir = Path("out/reports")
         reports_dir.mkdir(parents=True, exist_ok=True)
-
+        
         # Generate per-model reports
         from seibox.ui.report import generate_model_reports
-
         try:
             generate_model_reports(completed_plan, str(reports_dir))
             console.print(f"[green]✓[/green] Per-model reports generated in {reports_dir}")
         except Exception as e:
             console.print(f"[yellow]Warning: Could not generate per-model reports: {e}[/yellow]")
-
+        
         # Generate landscape report
         from seibox.ui.landscape_report import generate_landscape_report
-
         try:
             landscape_path = reports_dir / "landscape.html"
             generate_landscape_report(completed_plan, str(landscape_path))
             console.print(f"[green]✓[/green] Landscape report generated: {landscape_path}")
         except Exception as e:
             console.print(f"[yellow]Warning: Could not generate landscape report: {e}[/yellow]")
-
+        
         # Generate data bundle
         try:
             from seibox.utils.data_bundle import generate_parquet_bundle
-
             bundle_path = Path(out) / "all_runs.parquet"
             generate_parquet_bundle(completed_plan, str(bundle_path))
             console.print(f"[green]✓[/green] Data bundle saved: {bundle_path}")
         except Exception as e:
             console.print(f"[yellow]Warning: Could not generate data bundle: {e}[/yellow]")
-
+        
         console.print(f"\n[bold green]Landscape evaluation complete![/bold green]")
         console.print(f"Results: {out}")
         console.print(f"Reports: {reports_dir}")
-
+        
     except Exception as e:
         console.print(f"[bold red]Error running landscape:[/bold red] {e}")
-        raise click.Abort()
-
-
-@cli.command()
-@click.option("--sample", default="SMOKE", help="Sample mode: SMOKE, FULL, or N=<number>")
-@click.option("--out", default="releases/latest", help="Output directory for results")
-@click.option("--plan", is_flag=True, help="Show execution plan without running")
-@click.option("--models", help="Comma-separated list of models to include")
-@click.option("--workers", default=2, help="Maximum concurrent evaluation jobs")
-def release(
-    sample: str, out: str, plan: bool, models: str, workers: int
-) -> None:
-    """Run comprehensive release evaluation across all models and mitigation combinations.
-    
-    This command evaluates each enabled model against all safety categories
-    (PII, injection, benign) with 4 mitigation configurations:
-    - Baseline (no mitigations)
-    - Policy gate only
-    - Prompt hardening only
-    - Both mitigations combined
-    
-    Results include cost analysis, safety state tables, and statistical comparisons.
-    """
-    from datetime import datetime
-    from pathlib import Path
-    from seibox.runners.release_runner import run_release_evaluation
-
-    try:
-        # Parse model filter
-        model_list = models.split(",") if models else None
-
-        # Create timestamped output directory if using default
-        if out == "releases/latest":
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            out = f"releases/{timestamp}"
-
-        console.print("[bold blue]Starting release evaluation...[/bold blue]")
-        console.print(f"Sample mode: {sample}")
-        console.print(f"Output directory: {out}")
-        if model_list:
-            console.print(f"Model filter: {', '.join(model_list)}")
-        console.print(f"Workers: {workers}")
-        console.print()
-
-        # Run release evaluation
-        execution_plan = run_release_evaluation(
-            sample_mode=sample,
-            outdir=out,
-            models=model_list,
-            max_workers=workers,
-            plan_only=plan
-        )
-
-        if plan:
-            console.print("\n[yellow]Dry run complete. Use without --plan to execute.[/yellow]")
-            return
-
-        # Generate release reports
-        console.print(f"\n[bold blue]Generating release reports...[/bold blue]")
-        
-        try:
-            from seibox.ui.release_report import generate_release_report
-            
-            reports_dir = Path(out) / "reports"
-            reports_dir.mkdir(parents=True, exist_ok=True)
-            
-            report_path = reports_dir / "release_report.html"
-            generate_release_report(execution_plan, str(report_path))
-            console.print(f"[green]✓[/green] Release report generated: {report_path}")
-            
-        except Exception as e:
-            console.print(f"[yellow]Warning: Could not generate release report: {e}[/yellow]")
-
-        # Generate data bundle
-        try:
-            from seibox.utils.release_bundle import generate_release_bundle
-            
-            bundle_path = Path(out) / "data" / "release_data.parquet"
-            bundle_path.parent.mkdir(parents=True, exist_ok=True)
-            generate_release_bundle(execution_plan, str(bundle_path))
-            console.print(f"[green]✓[/green] Release data bundle saved: {bundle_path}")
-            
-        except Exception as e:
-            console.print(f"[yellow]Warning: Could not generate data bundle: {e}[/yellow]")
-
-        console.print(f"\n[bold green]Release evaluation complete![/bold green]")
-        console.print(f"Results: {out}")
-        console.print(f"Reports: {Path(out) / 'reports'}")
-        console.print(f"Data: {Path(out) / 'data'}")
-
-    except Exception as e:
-        console.print(f"[bold red]Error running release:[/bold red] {e}")
         raise click.Abort()
 
 

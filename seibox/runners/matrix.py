@@ -37,8 +37,6 @@ class JobSpec:
     error: Optional[str] = None
     actual_duration: Optional[int] = None
     actual_cost: Optional[float] = None
-    mitigation_combo: Optional[str] = None  # e.g., "baseline", "policy_gate", "prompt_hardening", "both"
-    mitigation_ids: List[str] = field(default_factory=list)  # List of mitigation IDs to apply
 
 
 @dataclass
@@ -133,16 +131,14 @@ class MatrixOrchestrator:
         
         return sample_size, estimated_cost, estimated_duration
     
-    def create_config_hash(self, config_path: str, model: str, sample_size: int, 
-                          mitigation_ids: Optional[List[str]] = None) -> str:
+    def create_config_hash(self, config_path: str, model: str, sample_size: int) -> str:
         """Create a hash for the configuration to detect changes."""
         try:
             with open(config_path, 'r') as f:
                 config_content = f.read()
             
-            # Include model name, sample size, and mitigations in hash
-            mitigations_str = ",".join(sorted(mitigation_ids or []))
-            hash_content = f"{config_content}{model}{sample_size}{mitigations_str}"
+            # Include model name and sample size in hash
+            hash_content = f"{config_content}{model}{sample_size}"
             return hashlib.sha256(hash_content.encode()).hexdigest()[:12]
         except FileNotFoundError:
             # Return a default hash if config doesn't exist
@@ -275,18 +271,13 @@ class MatrixOrchestrator:
                 yaml.dump(config, f)
             
             try:
-                # Prepare mitigation string for run_eval
-                mitigation_str = None
-                if job.mitigation_ids:
-                    mitigation_str = ",".join(job.mitigation_ids)
-                
                 # Run the evaluation
                 run_eval(
                     suite_name=job.category,
                     model_name=job.model,
                     config_path=str(temp_config_path),
                     out_path=job.output_path,
-                    mitigation_id=mitigation_str
+                    mitigation_id=None
                 )
                 
                 job.status = "completed"
@@ -397,7 +388,6 @@ class MatrixOrchestrator:
         table = Table(title="Evaluation Matrix Plan")
         table.add_column("Model", style="cyan")
         table.add_column("Category", style="magenta")
-        table.add_column("Mitigations", style="yellow")
         table.add_column("Samples", justify="right")
         table.add_column("Est. Calls", justify="right")
         table.add_column("Est. Cost", justify="right")
@@ -407,7 +397,6 @@ class MatrixOrchestrator:
         for job in plan.jobs:
             duration_str = f"{job.estimated_duration // 60}m {job.estimated_duration % 60}s"
             cost_str = f"${job.estimated_cost:.4f}"
-            mitigation_str = job.mitigation_combo or "baseline"
             
             status_color = {
                 "pending": "yellow",
@@ -419,7 +408,6 @@ class MatrixOrchestrator:
             table.add_row(
                 job.model,
                 job.category,
-                mitigation_str,
                 str(job.sample_size),
                 str(job.estimated_calls),
                 cost_str,
