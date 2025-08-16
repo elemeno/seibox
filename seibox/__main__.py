@@ -309,7 +309,12 @@ def new_suite(name: str, description: str) -> None:
 @cli.command("validate-prompts")
 @click.option("--path", required=True, help="Path to prompts JSONL file(s), supports wildcards")
 def validate_prompts(path: str) -> None:
-    """Validate prompt specification files for correctness."""
+    """Validate prompt specification files for correctness.
+    
+    Examples:
+      poetry run seibox validate-prompts --path prompts.jsonl
+      poetry run seibox validate-prompts --path "seibox/datasets/*/prompts.jsonl"
+    """
     import json
     from pathlib import Path
     from glob import glob
@@ -413,7 +418,12 @@ def validate_prompts(path: str) -> None:
 @click.option("--n", default=5, help="Number of examples to render")
 @click.option("--out", required=True, help="Output path for rendered JSONL")
 def render(path: str, n: int, out: str) -> None:
-    """Render prompt templates for preview and human review."""
+    """Render prompt templates for preview and human review.
+    
+    Examples:
+      poetry run seibox render --path prompts.jsonl --n 3 --out preview.jsonl
+      poetry run seibox render --path seibox/datasets/pii/prompts.jsonl --n 10 --out pii_preview.jsonl
+    """
     import json
     from pathlib import Path
     from rich.progress import track
