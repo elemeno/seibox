@@ -74,47 +74,47 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
     import json
     from seibox.utils.prompt_spec import PromptSpec
     from seibox.datasets.dsl import to_input_record
-    
+
     dataset_config = config["datasets"].get(suite_name, {})
     sample_size = dataset_config.get("sampling", {}).get("n", 3)
-    
+
     # Check if authoring configuration is specified
     authoring = dataset_config.get("authoring", {})
-    
+
     # Check for pack reference first
     if authoring and "pack" in authoring:
         from seibox.packs import load_pack
-        
+
         pack_id = authoring["pack"]
         console.print(f"[blue]Loading prompts from pack: {pack_id}[/blue]")
-        
+
         try:
             # Load prompts from the pack
             specs = load_pack(f"packs/{pack_id}", category=suite_name)
-            
+
             # Convert specs to input records
             records = []
             for spec in specs[:sample_size]:
                 record = to_input_record(spec, suite_override=suite_name)
                 records.append(record)
-            
+
             if records:
                 return records
         except Exception as e:
             console.print(f"[yellow]Warning: Failed to load pack {pack_id}: {e}[/yellow]")
             # Fall through to other loading methods
-    
+
     # Check if authoring path is specified in config
     if authoring and "path" in authoring:
         prompts_file = Path(authoring["path"])
         if not prompts_file.is_absolute():
             # Make path relative to project root
             prompts_file = Path(__file__).parent.parent.parent / authoring["path"]
-        
+
         if prompts_file.exists():
             # Load from prompts.jsonl with templates
             specs = []
-            with open(prompts_file, 'r') as f:
+            with open(prompts_file, "r") as f:
                 for line in f:
                     if not line.strip():
                         continue
@@ -123,17 +123,19 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
                         spec = PromptSpec(**data)
                         specs.append(spec)
                     except Exception as e:
-                        console.print(f"[yellow]Warning: Skipping invalid prompt spec: {e}[/yellow]")
-            
+                        console.print(
+                            f"[yellow]Warning: Skipping invalid prompt spec: {e}[/yellow]"
+                        )
+
             # Convert specs to input records
             records = []
             for spec in specs[:sample_size]:
                 record = to_input_record(spec, suite_override=suite_name)
                 records.append(record)
-            
+
             if records:
                 return records
-    
+
     # Fall back to seed.jsonl files
     seed_file = Path(__file__).parent.parent / "datasets" / suite_name / "seed.jsonl"
 
@@ -142,12 +144,12 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
         records = [schemas.InputRecord(**r) for r in io.read_jsonl(str(seed_file))]
         # Sample the requested number
         return records[:sample_size]
-    
+
     # Try prompts.jsonl as a secondary fallback
     prompts_file = Path(__file__).parent.parent / "datasets" / suite_name / "prompts.jsonl"
     if prompts_file.exists():
         specs = []
-        with open(prompts_file, 'r') as f:
+        with open(prompts_file, "r") as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -157,16 +159,16 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
                     specs.append(spec)
                 except Exception:
                     pass
-        
+
         # Convert specs to input records
         records = []
         for spec in specs[:sample_size]:
             record = to_input_record(spec, suite_override=suite_name)
             records.append(record)
-        
+
         if records:
             return records
-    
+
     else:
         # Fallback to synthetic data for compatibility
         records = []
@@ -385,69 +387,74 @@ def process_record(
 
     # Apply post-mitigations
     text, post_trace = apply_mitigations_post(response["text"], mitigation_id, record.prompt)
-    
+
     # Create trace with conversation details
     from datetime import datetime
     import uuid
     from seibox.utils.schemas import Trace, Message, AdapterInfo
-    
+
     # Get system prompt preview (first line or first 100 chars)
     system_preview = None
     if system_prompt:
-        lines = system_prompt.split('\n')
+        lines = system_prompt.split("\n")
         system_preview = lines[0] if lines else ""
         if len(system_preview) > 100:
             system_preview = system_preview[:97] + "..."
-    
+
     # Build message list from response
     messages = []
-    
+
     # Add system message if present (controlled by include_system flag)
     include_system = config.get("run", {}).get("include_system", False)
     if system_prompt:
-        messages.append(Message(
-            role="system",
-            content=system_prompt if include_system else f"[Hash: {system_hash}]",
-            timestamp=datetime.now().isoformat(),
-            redacted=not include_system
-        ))
-    
+        messages.append(
+            Message(
+                role="system",
+                content=system_prompt if include_system else f"[Hash: {system_hash}]",
+                timestamp=datetime.now().isoformat(),
+                redacted=not include_system,
+            )
+        )
+
     # Add exact messages from adapter response if available
     if "messages_sent" in response:
         for msg in response.get("messages_sent", []):
             if msg["role"] == "user":
-                messages.append(Message(
-                    role="user",
-                    content=msg["content"],
-                    timestamp=datetime.now().isoformat(),
-                    redacted=False
-                ))
+                messages.append(
+                    Message(
+                        role="user",
+                        content=msg["content"],
+                        timestamp=datetime.now().isoformat(),
+                        redacted=False,
+                    )
+                )
     else:
         # Fallback to prompt if adapter doesn't provide messages
-        messages.append(Message(
-            role="user",
-            content=prompt,
-            timestamp=datetime.now().isoformat(),
-            redacted=False
-        ))
-    
+        messages.append(
+            Message(
+                role="user", content=prompt, timestamp=datetime.now().isoformat(), redacted=False
+            )
+        )
+
     # Add assistant response
-    messages.append(Message(
-        role="assistant",
-        content=text,
-        timestamp=datetime.now().isoformat(),
-        redacted=text != response["text"]  # Mark as redacted if modified by post-mitigation
-    ))
-    
+    messages.append(
+        Message(
+            role="assistant",
+            content=text,
+            timestamp=datetime.now().isoformat(),
+            redacted=text != response["text"],  # Mark as redacted if modified by post-mitigation
+        )
+    )
+
     # Create adapter info
     adapter_info = None
     if "adapter_params" in response:
         adapter_info = AdapterInfo(
             name=adapter.name,
-            model=getattr(adapter, 'model_name', adapter.name.split(':')[-1]),
-            params=response["adapter_params"]
+            model=getattr(adapter, "model_name", adapter.name.split(":")[-1]),
+            params=response["adapter_params"],
         )
-    
+
     # Build trace object
     trace = Trace(
         conversation_id=str(uuid.uuid4()),
@@ -461,9 +468,9 @@ def process_record(
         gold=record.gold,
         redacted=text != response["text"],
         assistant_raw=response["text"] if text != response["text"] else None,
-        assistant_redacted=text if text != response["text"] else None
+        assistant_redacted=text if text != response["text"] else None,
     )
-    
+
     # Score the output based on suite type
     scores = {}
     judgement = {}
@@ -474,7 +481,7 @@ def process_record(
         scores.update(pii_result["entities"])
         scores["leak"] = pii_result["leak"]
         judgement["blocked"] = not pii_result["leak"]  # Blocked if no leak
-        
+
         # Add match details to trace for debugging
         if "matches" in pii_result and pii_result["matches"]:
             trace.matches = pii_result["matches"]
@@ -498,7 +505,6 @@ def process_record(
         usage.get("output_tokens", 0),
         cost_table,
     )
-
 
     return schemas.OutputRecord(
         id=record.id,

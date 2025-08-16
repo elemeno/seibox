@@ -35,22 +35,24 @@ class GeminiAdapter:
             try:
                 from google import genai
             except ImportError:
-                raise ImportError("Google GenAI package not installed. Run: pip install google-genai")
+                raise ImportError(
+                    "Google GenAI package not installed. Run: pip install google-genai"
+                )
 
             load_dotenv()
 
             # Check for Vertex AI configuration first
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-            use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1", "yes")
+            use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in (
+                "true",
+                "1",
+                "yes",
+            )
 
             if use_vertexai and project_id:
                 # Use Vertex AI
-                self._client = genai.Client(
-                    vertexai=True,
-                    project=project_id,
-                    location=location
-                )
+                self._client = genai.Client(vertexai=True, project=project_id, location=location)
                 self._use_vertexai = True
             else:
                 # Use Gemini Developer API
@@ -124,21 +126,25 @@ class GeminiAdapter:
             latency_ms = (time.time() - start_time) * 1000
 
             # Extract text from response
-            text_content = response.text if hasattr(response, 'text') else ""
+            text_content = response.text if hasattr(response, "text") else ""
 
             # Extract token usage if available
-            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
                 usage_metadata = response.usage_metadata
-                input_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
-                output_tokens = getattr(usage_metadata, 'candidates_token_count', 0)
-                total_tokens = getattr(usage_metadata, 'total_token_count', input_tokens + output_tokens)
+                input_tokens = getattr(usage_metadata, "prompt_token_count", 0)
+                output_tokens = getattr(usage_metadata, "candidates_token_count", 0)
+                total_tokens = getattr(
+                    usage_metadata, "total_token_count", input_tokens + output_tokens
+                )
             else:
                 # Estimate tokens if Gemini doesn't provide usage info
                 from seibox.utils.tokens import estimate_tokens
 
                 # Estimate input tokens (prompt + system)
                 full_input = f"{system or ''}\n{prompt}".strip()
-                input_tokens = estimate_tokens(full_input, "gpt-4")  # Use GPT-4 tokenizer as approximation
+                input_tokens = estimate_tokens(
+                    full_input, "gpt-4"
+                )  # Use GPT-4 tokenizer as approximation
                 output_tokens = estimate_tokens(text_content, "gpt-4")
                 total_tokens = input_tokens + output_tokens
 
