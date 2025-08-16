@@ -29,14 +29,10 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 # ---------- Public API ----------
 
 
-def render_release_report(
-    matrix_parquet: str, 
-    golden_json: Optional[str], 
-    out_html: str
-) -> None:
+def render_release_report(matrix_parquet: str, golden_json: Optional[str], out_html: str) -> None:
     """
     Load data, compute derived views, render with Jinja2.
-    
+
     Args:
         matrix_parquet: Path to aggregates/matrix.parquet produced by the release runner.
         golden_json: Optional path to aggregates/golden_compare.json.
@@ -101,7 +97,7 @@ def _build_metadata() -> Dict[str, Any]:
 
 def _build_summary(df: pd.DataFrame) -> Dict[str, Any]:
     """Build summary cards data."""
-    
+
     def best_metric(metric: str, higher_is_better: bool = True) -> tuple[str, float]:
         sub = df[df["metric"] == metric][["model", "value"]]
         if sub.empty:
@@ -131,36 +127,38 @@ def _build_summary(df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-def _build_heatmap_data(df: pd.DataFrame, profiles: List[str], categories: List[str], models: List[str]) -> Dict[str, Any]:
+def _build_heatmap_data(
+    df: pd.DataFrame, profiles: List[str], categories: List[str], models: List[str]
+) -> Dict[str, Any]:
     """Build heatmap data for all profiles."""
     heatmap_data = {}
-    
+
     for profile in profiles:
         profile_data = {}
-        
+
         for category in categories:
             category_data = {}
-            
+
             for model in models:
                 # Get coverage data for this model/category/profile
                 subset = df[
-                    (df["profile"] == profile) & 
-                    (df["category"] == category) & 
-                    (df["model"] == model) & 
-                    (df["metric"] == "coverage")
+                    (df["profile"] == profile)
+                    & (df["category"] == category)
+                    & (df["model"] == model)
+                    & (df["metric"] == "coverage")
                 ]
-                
+
                 if not subset.empty:
                     row = subset.iloc[0]
                     coverage = float(row["value"])
                     ci_low = float(row["ci_low"]) if pd.notna(row["ci_low"]) else coverage
                     ci_high = float(row["ci_high"]) if pd.notna(row["ci_high"]) else coverage
                     ci_width = (ci_high - ci_low) / 2
-                    
+
                     # Color coding based on coverage (0-10 scale)
                     color_scale = min(10, max(0, int(coverage * 10)))
                     css_class = f"coverage-{color_scale}"
-                    
+
                     category_data[model] = {
                         "coverage": coverage,
                         "coverage_ci_width": ci_width,
@@ -172,75 +170,92 @@ def _build_heatmap_data(df: pd.DataFrame, profiles: List[str], categories: List[
                         "coverage_ci_width": 0.0,
                         "css_class": "coverage-0",
                     }
-            
+
             profile_data[category] = category_data
-        
+
         heatmap_data[profile] = profile_data
-    
+
     return heatmap_data
 
 
 def _build_profile_tables(df: pd.DataFrame, profiles: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """Build detailed tables for each profile."""
     profile_tables = {}
-    
+
     for profile in profiles:
         profile_df = df[df["profile"] == profile]
-        
+
         # Group by model and category to create rows
         grouped = profile_df.groupby(["model", "category"])
-        
+
         rows = []
         for (model, category), group in grouped:
             row = {"model": model, "category": category}
-            
+
             # Extract metrics
-            for metric in ["coverage", "benign_pass_rate", "false_positive_rate", "injection_success_rate"]:
+            for metric in [
+                "coverage",
+                "benign_pass_rate",
+                "false_positive_rate",
+                "injection_success_rate",
+            ]:
                 metric_data = group[group["metric"] == metric]
                 if not metric_data.empty:
                     metric_row = metric_data.iloc[0]
                     value = float(metric_row["value"])
-                    ci_low = float(metric_row["ci_low"]) if pd.notna(metric_row["ci_low"]) else value
-                    ci_high = float(metric_row["ci_high"]) if pd.notna(metric_row["ci_high"]) else value
+                    ci_low = (
+                        float(metric_row["ci_low"]) if pd.notna(metric_row["ci_low"]) else value
+                    )
+                    ci_high = (
+                        float(metric_row["ci_high"]) if pd.notna(metric_row["ci_high"]) else value
+                    )
                     ci_text = f"±{((ci_high - ci_low) * 50):.1f}pp"
-                    
+
                     row[metric] = value
                     row[f"{metric}_ci"] = ci_text
                 else:
                     row[metric] = 0.0
                     row[f"{metric}_ci"] = ""
-            
+
             rows.append(row)
-        
+
         profile_tables[profile] = rows
-    
+
     return profile_tables
 
 
 def _build_cost_table(df: pd.DataFrame) -> List[Dict[str, Any]]:
     """Build cost and token usage table."""
-    
+
     # Group by model to aggregate costs and tokens
-    grouped = df.groupby("model").agg({
-        "cost_total_usd": "sum",
-        "tokens_in": "sum", 
-        "tokens_out": "sum",
-    }).reset_index()
-    
+    grouped = (
+        df.groupby("model")
+        .agg(
+            {
+                "cost_total_usd": "sum",
+                "tokens_in": "sum",
+                "tokens_out": "sum",
+            }
+        )
+        .reset_index()
+    )
+
     rows = []
     for _, row in grouped.iterrows():
         total_tokens = int(row["tokens_in"] + row["tokens_out"])
         cost_per_1k = (row["cost_total_usd"] / total_tokens * 1000) if total_tokens > 0 else 0.0
-        
-        rows.append({
-            "model": row["model"],
-            "total_cost": row["cost_total_usd"],
-            "input_tokens": int(row["tokens_in"]),
-            "output_tokens": int(row["tokens_out"]),
-            "total_tokens": total_tokens,
-            "cost_per_1k": cost_per_1k,
-        })
-    
+
+        rows.append(
+            {
+                "model": row["model"],
+                "total_cost": row["cost_total_usd"],
+                "input_tokens": int(row["tokens_in"]),
+                "output_tokens": int(row["tokens_out"]),
+                "total_tokens": total_tokens,
+                "cost_per_1k": cost_per_1k,
+            }
+        )
+
     return sorted(rows, key=lambda x: x["total_cost"], reverse=True)
 
 
@@ -258,12 +273,12 @@ def _render_template(template_name: str, context: Dict[str, Any]) -> str:
         trim_blocks=True,
         lstrip_blocks=True,
     )
-    
+
     # Add custom filters for formatting
     env.filters["format_pct"] = _format_pct
     env.filters["format_money"] = _format_money
     env.filters["format_ci"] = _format_ci
-    
+
     template = env.get_template(template_name)
     return template.render(**context)
 
