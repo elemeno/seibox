@@ -11,31 +11,28 @@ from seibox.runners.matrix import Plan
 def load_results_data(plan: Plan) -> Dict[str, Any]:
     """Load evaluation results from completed jobs."""
     results: Dict[str, Any] = {}
-    
+
     for job in plan.jobs:
         if job.status != "completed":
             continue
-            
-        summary_path = Path(job.output_path).with_suffix('.summary.json')
+
+        summary_path = Path(job.output_path).with_suffix(".summary.json")
         if not summary_path.exists():
             continue
-            
+
         try:
-            with open(summary_path, 'r') as f:
+            with open(summary_path, "r") as f:
                 summary = json.load(f)
-                
+
             # Store results by model and category
             if job.model not in results:
                 results[job.model] = {}
-                
-            results[job.model][job.category] = {
-                'summary': summary,
-                'job': job
-            }
-            
+
+            results[job.model][job.category] = {"summary": summary, "job": job}
+
         except Exception:
             continue
-    
+
     return results
 
 
@@ -46,101 +43,109 @@ def extract_metrics(results: Dict[str, Any]) -> Dict[str, Any]:
     heatmap_data: Dict[str, Dict[str, Dict[str, float]]] = {}
     frontier_data: List[Dict[str, Any]] = []
     error_jobs: List[str] = []
-    
+
     metrics = {
-        'models': models_list,
-        'categories': categories_list,
-        'heatmap_data': heatmap_data,
-        'frontier_data': frontier_data,
-        'error_jobs': error_jobs
+        "models": models_list,
+        "categories": categories_list,
+        "heatmap_data": heatmap_data,
+        "frontier_data": frontier_data,
+        "error_jobs": error_jobs,
     }
-    
+
     # Get all categories
     all_categories = set()
     for model_results in results.values():
         all_categories.update(model_results.keys())
     categories_list[:] = sorted(list(all_categories))
-    
+
     # Initialize heatmap data structure
-    for metric in ['safety_coverage', 'benign_pass_rate', 'injection_success_rate', 'cost_per_1k', 'p95_latency']:
+    for metric in [
+        "safety_coverage",
+        "benign_pass_rate",
+        "injection_success_rate",
+        "cost_per_1k",
+        "p95_latency",
+    ]:
         heatmap_data[metric] = {}
         for model in models_list:
             heatmap_data[metric][model] = {}
-    
+
     # Extract metrics for each model-category combination
     for model, categories in results.items():
         model_frontier_data = {
-            'model': model,
-            'safety_coverage': 0,
-            'benign_pass_rate': 0,
-            'cost_per_1k': 0,
-            'p95_latency': 0,
-            'categories_count': 0
+            "model": model,
+            "safety_coverage": 0,
+            "benign_pass_rate": 0,
+            "cost_per_1k": 0,
+            "p95_latency": 0,
+            "categories_count": 0,
         }
-        
+
         for category, data in categories.items():
-            summary = data['summary']
-            
+            summary = data["summary"]
+
             # Extract key metrics
-            safety_coverage = summary.get('safety_coverage', 0) * 100
-            benign_pass_rate = summary.get('benign_pass_rate', 0) * 100
-            injection_success_rate = summary.get('injection_success_rate', 0) * 100
-            cost_per_1k = summary.get('cost_per_1k', 0)
-            
+            safety_coverage = summary.get("safety_coverage", 0) * 100
+            benign_pass_rate = summary.get("benign_pass_rate", 0) * 100
+            injection_success_rate = summary.get("injection_success_rate", 0) * 100
+            cost_per_1k = summary.get("cost_per_1k", 0)
+
             # Get latency from summary (p95)
             latency_p95 = 0
-            if 'latency_p95' in summary:
-                latency_p95 = summary['latency_p95']
-            elif 'latency' in summary:
-                latency_p95 = summary['latency'].get('p95', 0)
-            
+            if "latency_p95" in summary:
+                latency_p95 = summary["latency_p95"]
+            elif "latency" in summary:
+                latency_p95 = summary["latency"].get("p95", 0)
+
             # Store in heatmap data
-            heatmap_data['safety_coverage'][model][category] = safety_coverage
-            heatmap_data['benign_pass_rate'][model][category] = benign_pass_rate
-            heatmap_data['injection_success_rate'][model][category] = injection_success_rate
-            heatmap_data['cost_per_1k'][model][category] = cost_per_1k
-            heatmap_data['p95_latency'][model][category] = latency_p95
-            
+            heatmap_data["safety_coverage"][model][category] = safety_coverage
+            heatmap_data["benign_pass_rate"][model][category] = benign_pass_rate
+            heatmap_data["injection_success_rate"][model][category] = injection_success_rate
+            heatmap_data["cost_per_1k"][model][category] = cost_per_1k
+            heatmap_data["p95_latency"][model][category] = latency_p95
+
             # Aggregate for frontier chart (average across categories)
-            model_frontier_data['safety_coverage'] += safety_coverage
-            model_frontier_data['benign_pass_rate'] += benign_pass_rate
-            model_frontier_data['cost_per_1k'] += cost_per_1k
-            model_frontier_data['p95_latency'] += latency_p95
-            model_frontier_data['categories_count'] += 1
-        
+            model_frontier_data["safety_coverage"] += safety_coverage
+            model_frontier_data["benign_pass_rate"] += benign_pass_rate
+            model_frontier_data["cost_per_1k"] += cost_per_1k
+            model_frontier_data["p95_latency"] += latency_p95
+            model_frontier_data["categories_count"] += 1
+
         # Average the frontier data
-        if model_frontier_data['categories_count'] > 0:
-            count = model_frontier_data['categories_count']
-            model_frontier_data['safety_coverage'] /= count
-            model_frontier_data['benign_pass_rate'] /= count
-            model_frontier_data['cost_per_1k'] /= count
-            model_frontier_data['p95_latency'] /= count
-            
+        if model_frontier_data["categories_count"] > 0:
+            count = model_frontier_data["categories_count"]
+            model_frontier_data["safety_coverage"] /= count
+            model_frontier_data["benign_pass_rate"] /= count
+            model_frontier_data["cost_per_1k"] /= count
+            model_frontier_data["p95_latency"] /= count
+
             frontier_data.append(model_frontier_data)
-    
+
     return metrics
 
 
 def generate_landscape_report(plan: Plan, output_path: str) -> None:
     """Generate comprehensive landscape HTML report."""
-    
+
     # Load results data
     results = load_results_data(plan)
-    
+
     # Extract metrics
     metrics = extract_metrics(results)
-    
+
     # Add error information
     error_jobs = []
     for job in plan.jobs:
         if job.status == "failed":
-            error_jobs.append({
-                'model': job.model,
-                'category': job.category,
-                'error': job.error or "Unknown error"
-            })
-    metrics['error_jobs'] = error_jobs
-    
+            error_jobs.append(
+                {
+                    "model": job.model,
+                    "category": job.category,
+                    "error": job.error or "Unknown error",
+                }
+            )
+    metrics["error_jobs"] = error_jobs
+
     # HTML template
     template_str = """
 <!DOCTYPE html>
@@ -453,11 +458,11 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
 </body>
 </html>
     """
-    
+
     # Render template
     template = Template(template_str)
     html_content = template.render(metrics=metrics)
-    
+
     # Write to file
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write(html_content)

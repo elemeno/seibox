@@ -655,18 +655,16 @@ def landscape(
 @click.option("--plan", is_flag=True, help="Show execution plan without running")
 @click.option("--models", help="Comma-separated list of models to include")
 @click.option("--workers", default=2, help="Maximum concurrent evaluation jobs")
-def release(
-    sample: str, out: str, plan: bool, models: str, workers: int
-) -> None:
+def release(sample: str, out: str, plan: bool, models: str, workers: int) -> None:
     """Run comprehensive release evaluation across all models and mitigation combinations.
-    
+
     This command evaluates each enabled model against all safety categories
     (PII, injection, benign) with 4 mitigation configurations:
     - Baseline (no mitigations)
     - Policy gate only
     - Prompt hardening only
     - Both mitigations combined
-    
+
     Results include cost analysis, safety state tables, and statistical comparisons.
     """
     from datetime import datetime
@@ -692,11 +690,7 @@ def release(
 
         # Run release evaluation
         execution_plan = run_release_evaluation(
-            sample_mode=sample,
-            outdir=out,
-            models=model_list,
-            max_workers=workers,
-            plan_only=plan
+            sample_mode=sample, outdir=out, models=model_list, max_workers=workers, plan_only=plan
         )
 
         if plan:
@@ -705,29 +699,29 @@ def release(
 
         # Generate release reports
         console.print(f"\n[bold blue]Generating release reports...[/bold blue]")
-        
+
         try:
             from seibox.ui.release_report import generate_release_report
-            
+
             reports_dir = Path(out) / "reports"
             reports_dir.mkdir(parents=True, exist_ok=True)
-            
+
             report_path = reports_dir / "release_report.html"
             generate_release_report(execution_plan, str(report_path))
             console.print(f"[green]✓[/green] Release report generated: {report_path}")
-            
+
         except Exception as e:
             console.print(f"[yellow]Warning: Could not generate release report: {e}[/yellow]")
 
         # Generate data bundle
         try:
             from seibox.utils.release_bundle import generate_release_bundle
-            
+
             bundle_path = Path(out) / "data" / "release_data.parquet"
             bundle_path.parent.mkdir(parents=True, exist_ok=True)
             generate_release_bundle(execution_plan, str(bundle_path))
             console.print(f"[green]✓[/green] Release data bundle saved: {bundle_path}")
-            
+
         except Exception as e:
             console.print(f"[yellow]Warning: Could not generate data bundle: {e}[/yellow]")
 

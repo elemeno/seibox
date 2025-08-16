@@ -12,290 +12,324 @@ from seibox.runners.matrix import Plan
 def load_release_results(plan: Plan) -> Dict[str, Any]:
     """Load evaluation results from completed release jobs."""
     results: Dict[str, Dict[str, Dict[str, Any]]] = {}
-    
+
     for job in plan.jobs:
         if job.status != "completed":
             continue
-            
-        summary_path = Path(job.output_path).with_suffix('.summary.json')
+
+        summary_path = Path(job.output_path).with_suffix(".summary.json")
         if not summary_path.exists():
             continue
-            
+
         try:
-            with open(summary_path, 'r') as f:
+            with open(summary_path, "r") as f:
                 summary = json.load(f)
-                
+
             # Store results by model -> mitigation_combo -> category
             model = job.model
             combo = job.mitigation_combo or "baseline"
             category = job.category
-            
+
             if model not in results:
                 results[model] = {}
             if combo not in results[model]:
                 results[model][combo] = {}
-                
-            results[model][combo][category] = {
-                'summary': summary,
-                'job': job
-            }
-            
+
+            results[model][combo][category] = {"summary": summary, "job": job}
+
         except Exception:
             continue
-    
+
     return results
 
 
 def extract_safety_metrics(results: Dict[str, Any]) -> Dict[str, Any]:
     """Extract safety state metrics for tables and comparisons."""
     safety_data = {
-        'models': list(results.keys()),
-        'mitigation_combos': ["baseline", "policy_gate", "prompt_hardening", "both"],
-        'categories': ["pii", "injection", "benign"],
-        'metrics': {},
-        'costs': {},
-        'improvements': {}
+        "models": list(results.keys()),
+        "mitigation_combos": ["baseline", "policy_gate", "prompt_hardening", "both"],
+        "categories": ["pii", "injection", "benign"],
+        "metrics": {},
+        "costs": {},
+        "improvements": {},
     }
-    
+
     # Extract metrics for each model x combo x category
-    for model in safety_data['models']:
-        safety_data['metrics'][model] = {}
-        safety_data['costs'][model] = {}
-        
-        for combo in safety_data['mitigation_combos']:
+    for model in safety_data["models"]:
+        safety_data["metrics"][model] = {}
+        safety_data["costs"][model] = {}
+
+        for combo in safety_data["mitigation_combos"]:
             if combo not in results[model]:
                 continue
-                
-            safety_data['metrics'][model][combo] = {}
-            safety_data['costs'][model][combo] = {}
-            
+
+            safety_data["metrics"][model][combo] = {}
+            safety_data["costs"][model][combo] = {}
+
             total_cost = 0.0
             total_calls = 0
-            
-            for category in safety_data['categories']:
+
+            for category in safety_data["categories"]:
                 if category not in results[model][combo]:
                     continue
-                    
+
                 data = results[model][combo][category]
-                summary = data['summary']
-                
+                summary = data["summary"]
+
                 # Extract key safety metrics
                 metrics = {}
-                
+
                 if category == "pii":
                     # PII protection metrics
-                    metrics['safety_coverage'] = summary.get('aggregate', {}).get('safety_coverage', 0.0)
-                    metrics['pii_leak_rate'] = summary.get('aggregate', {}).get('pii_leak_rate', 0.0)
-                    metrics['false_positive_rate'] = summary.get('aggregate', {}).get('false_positive_rate', 0.0)
-                    
+                    metrics["safety_coverage"] = summary.get("aggregate", {}).get(
+                        "safety_coverage", 0.0
+                    )
+                    metrics["pii_leak_rate"] = summary.get("aggregate", {}).get(
+                        "pii_leak_rate", 0.0
+                    )
+                    metrics["false_positive_rate"] = summary.get("aggregate", {}).get(
+                        "false_positive_rate", 0.0
+                    )
+
                 elif category == "injection":
                     # Injection resistance metrics
-                    metrics['safety_coverage'] = summary.get('aggregate', {}).get('safety_coverage', 0.0)
-                    metrics['injection_success_rate'] = summary.get('aggregate', {}).get('injection_success_rate', 0.0)
-                    metrics['violation_rate'] = summary.get('aggregate', {}).get('violation_rate', 0.0)
-                    
+                    metrics["safety_coverage"] = summary.get("aggregate", {}).get(
+                        "safety_coverage", 0.0
+                    )
+                    metrics["injection_success_rate"] = summary.get("aggregate", {}).get(
+                        "injection_success_rate", 0.0
+                    )
+                    metrics["violation_rate"] = summary.get("aggregate", {}).get(
+                        "violation_rate", 0.0
+                    )
+
                 elif category == "benign":
                     # Benign helpfulness metrics
-                    metrics['benign_pass_rate'] = summary.get('aggregate', {}).get('benign_pass_rate', 0.0)
-                    metrics['helpfulness_score'] = summary.get('aggregate', {}).get('helpfulness_score', 0.0)
-                    metrics['false_positive_rate'] = summary.get('aggregate', {}).get('false_positive_rate', 0.0)
-                
+                    metrics["benign_pass_rate"] = summary.get("aggregate", {}).get(
+                        "benign_pass_rate", 0.0
+                    )
+                    metrics["helpfulness_score"] = summary.get("aggregate", {}).get(
+                        "helpfulness_score", 0.0
+                    )
+                    metrics["false_positive_rate"] = summary.get("aggregate", {}).get(
+                        "false_positive_rate", 0.0
+                    )
+
                 # Cost and performance data
-                cost_data = summary.get('cost', {})
-                total_cost += cost_data.get('total_usd', 0.0)
-                total_calls += cost_data.get('total_calls', 0)
-                
-                metrics['latency_p95'] = summary.get('performance', {}).get('latency_p95_ms', 0.0)
-                metrics['cost_per_call'] = cost_data.get('usd_per_call', 0.0)
-                
-                safety_data['metrics'][model][combo][category] = metrics
-            
-            safety_data['costs'][model][combo] = {
-                'total_usd': total_cost,
-                'total_calls': total_calls,
-                'usd_per_call': total_cost / total_calls if total_calls > 0 else 0.0
+                cost_data = summary.get("cost", {})
+                total_cost += cost_data.get("total_usd", 0.0)
+                total_calls += cost_data.get("total_calls", 0)
+
+                metrics["latency_p95"] = summary.get("performance", {}).get("latency_p95_ms", 0.0)
+                metrics["cost_per_call"] = cost_data.get("usd_per_call", 0.0)
+
+                safety_data["metrics"][model][combo][category] = metrics
+
+            safety_data["costs"][model][combo] = {
+                "total_usd": total_cost,
+                "total_calls": total_calls,
+                "usd_per_call": total_cost / total_calls if total_calls > 0 else 0.0,
             }
-    
+
     # Calculate improvements relative to baseline
-    for model in safety_data['models']:
-        safety_data['improvements'][model] = {}
-        
-        baseline_metrics = safety_data['metrics'][model].get('baseline', {})
-        
-        for combo in ['policy_gate', 'prompt_hardening', 'both']:
-            if combo not in safety_data['metrics'][model]:
+    for model in safety_data["models"]:
+        safety_data["improvements"][model] = {}
+
+        baseline_metrics = safety_data["metrics"][model].get("baseline", {})
+
+        for combo in ["policy_gate", "prompt_hardening", "both"]:
+            if combo not in safety_data["metrics"][model]:
                 continue
-                
-            combo_metrics = safety_data['metrics'][model][combo]
-            safety_data['improvements'][model][combo] = {}
-            
-            for category in safety_data['categories']:
+
+            combo_metrics = safety_data["metrics"][model][combo]
+            safety_data["improvements"][model][combo] = {}
+
+            for category in safety_data["categories"]:
                 if category not in baseline_metrics or category not in combo_metrics:
                     continue
-                    
+
                 baseline = baseline_metrics[category]
                 current = combo_metrics[category]
                 improvements = {}
-                
+
                 # Calculate percentage point improvements
                 for metric in baseline.keys():
                     if metric in current and isinstance(baseline[metric], (int, float)):
                         baseline_val = baseline[metric]
                         current_val = current[metric]
-                        
-                        if metric in ['safety_coverage', 'benign_pass_rate', 'helpfulness_score']:
+
+                        if metric in ["safety_coverage", "benign_pass_rate", "helpfulness_score"]:
                             # Higher is better
-                            improvements[f"{metric}_improvement"] = (current_val - baseline_val) * 100
-                        elif metric in ['pii_leak_rate', 'injection_success_rate', 'violation_rate', 'false_positive_rate']:
+                            improvements[f"{metric}_improvement"] = (
+                                current_val - baseline_val
+                            ) * 100
+                        elif metric in [
+                            "pii_leak_rate",
+                            "injection_success_rate",
+                            "violation_rate",
+                            "false_positive_rate",
+                        ]:
                             # Lower is better
-                            improvements[f"{metric}_improvement"] = (baseline_val - current_val) * 100
+                            improvements[f"{metric}_improvement"] = (
+                                baseline_val - current_val
+                            ) * 100
                         else:
                             # Raw difference for latency, cost
                             improvements[f"{metric}_change"] = current_val - baseline_val
-                
-                safety_data['improvements'][model][combo][category] = improvements
-    
+
+                safety_data["improvements"][model][combo][category] = improvements
+
     return safety_data
 
 
 def create_safety_state_tables(safety_data: Dict[str, Any]) -> Dict[str, str]:
     """Create HTML tables showing safety state across models and mitigations."""
     tables = {}
-    
-    for category in safety_data['categories']:
+
+    for category in safety_data["categories"]:
         # Create DataFrame for this category
         table_data = []
-        
-        for model in safety_data['models']:
-            for combo in safety_data['mitigation_combos']:
-                if (combo in safety_data['metrics'][model] and 
-                    category in safety_data['metrics'][model][combo]):
-                    
-                    metrics = safety_data['metrics'][model][combo][category]
-                    cost_data = safety_data['costs'][model][combo]
-                    
+
+        for model in safety_data["models"]:
+            for combo in safety_data["mitigation_combos"]:
+                if (
+                    combo in safety_data["metrics"][model]
+                    and category in safety_data["metrics"][model][combo]
+                ):
+
+                    metrics = safety_data["metrics"][model][combo][category]
+                    cost_data = safety_data["costs"][model][combo]
+
                     row = {
-                        'Model': model,
-                        'Mitigation': combo.replace('_', ' ').title(),
-                        'Cost (USD)': f"${cost_data['total_usd']:.4f}",
-                        'Cost/Call': f"${cost_data['usd_per_call']:.6f}"
+                        "Model": model,
+                        "Mitigation": combo.replace("_", " ").title(),
+                        "Cost (USD)": f"${cost_data['total_usd']:.4f}",
+                        "Cost/Call": f"${cost_data['usd_per_call']:.6f}",
                     }
-                    
+
                     # Add category-specific metrics
                     if category == "pii":
-                        row.update({
-                            'Safety Coverage': f"{metrics.get('safety_coverage', 0):.1%}",
-                            'PII Leak Rate': f"{metrics.get('pii_leak_rate', 0):.1%}",
-                            'False Positive Rate': f"{metrics.get('false_positive_rate', 0):.1%}"
-                        })
+                        row.update(
+                            {
+                                "Safety Coverage": f"{metrics.get('safety_coverage', 0):.1%}",
+                                "PII Leak Rate": f"{metrics.get('pii_leak_rate', 0):.1%}",
+                                "False Positive Rate": f"{metrics.get('false_positive_rate', 0):.1%}",
+                            }
+                        )
                     elif category == "injection":
-                        row.update({
-                            'Safety Coverage': f"{metrics.get('safety_coverage', 0):.1%}",
-                            'Injection Success': f"{metrics.get('injection_success_rate', 0):.1%}",
-                            'Violation Rate': f"{metrics.get('violation_rate', 0):.1%}"
-                        })
+                        row.update(
+                            {
+                                "Safety Coverage": f"{metrics.get('safety_coverage', 0):.1%}",
+                                "Injection Success": f"{metrics.get('injection_success_rate', 0):.1%}",
+                                "Violation Rate": f"{metrics.get('violation_rate', 0):.1%}",
+                            }
+                        )
                     elif category == "benign":
-                        row.update({
-                            'Benign Pass Rate': f"{metrics.get('benign_pass_rate', 0):.1%}",
-                            'Helpfulness Score': f"{metrics.get('helpfulness_score', 0):.2f}",
-                            'False Positive Rate': f"{metrics.get('false_positive_rate', 0):.1%}"
-                        })
-                    
-                    row['Latency P95 (ms)'] = f"{metrics.get('latency_p95', 0):.0f}"
+                        row.update(
+                            {
+                                "Benign Pass Rate": f"{metrics.get('benign_pass_rate', 0):.1%}",
+                                "Helpfulness Score": f"{metrics.get('helpfulness_score', 0):.2f}",
+                                "False Positive Rate": f"{metrics.get('false_positive_rate', 0):.1%}",
+                            }
+                        )
+
+                    row["Latency P95 (ms)"] = f"{metrics.get('latency_p95', 0):.0f}"
                     table_data.append(row)
-        
+
         if table_data:
             df = pd.DataFrame(table_data)
-            
+
             # Convert to HTML with styling
             html_table = df.to_html(
-                index=False, 
+                index=False,
                 classes="table table-striped table-hover",
                 table_id=f"safety-table-{category}",
-                escape=False
+                escape=False,
             )
-            
+
             tables[category] = html_table
-    
+
     return tables
 
 
 def create_improvement_tables(safety_data: Dict[str, Any]) -> Dict[str, str]:
     """Create HTML tables showing mitigation effectiveness."""
     tables = {}
-    
-    for category in safety_data['categories']:
+
+    for category in safety_data["categories"]:
         table_data = []
-        
-        for model in safety_data['models']:
-            for combo in ['policy_gate', 'prompt_hardening', 'both']:
-                if (combo in safety_data['improvements'][model] and
-                    category in safety_data['improvements'][model][combo]):
-                    
-                    improvements = safety_data['improvements'][model][combo][category]
-                    
-                    row = {
-                        'Model': model,
-                        'Mitigation': combo.replace('_', ' ').title()
-                    }
-                    
+
+        for model in safety_data["models"]:
+            for combo in ["policy_gate", "prompt_hardening", "both"]:
+                if (
+                    combo in safety_data["improvements"][model]
+                    and category in safety_data["improvements"][model][combo]
+                ):
+
+                    improvements = safety_data["improvements"][model][combo][category]
+
+                    row = {"Model": model, "Mitigation": combo.replace("_", " ").title()}
+
                     # Add category-specific improvement metrics
                     for metric, value in improvements.items():
-                        if metric.endswith('_improvement'):
-                            metric_name = metric.replace('_improvement', '').replace('_', ' ').title()
+                        if metric.endswith("_improvement"):
+                            metric_name = (
+                                metric.replace("_improvement", "").replace("_", " ").title()
+                            )
                             if value > 0:
                                 row[f"{metric_name} Δ"] = f"+{value:.1f}pp"
                             else:
                                 row[f"{metric_name} Δ"] = f"{value:.1f}pp"
-                        elif metric.endswith('_change'):
-                            metric_name = metric.replace('_change', '').replace('_', ' ').title()
-                            if 'cost' in metric.lower():
+                        elif metric.endswith("_change"):
+                            metric_name = metric.replace("_change", "").replace("_", " ").title()
+                            if "cost" in metric.lower():
                                 row[f"{metric_name} Δ"] = f"${value:.4f}"
                             else:
                                 row[f"{metric_name} Δ"] = f"{value:.1f}"
-                    
+
                     table_data.append(row)
-        
+
         if table_data:
             df = pd.DataFrame(table_data)
             html_table = df.to_html(
                 index=False,
                 classes="table table-striped table-hover",
                 table_id=f"improvement-table-{category}",
-                escape=False
+                escape=False,
             )
             tables[category] = html_table
-    
+
     return tables
 
 
 def generate_release_report(plan: Plan, output_path: str) -> None:
     """Generate comprehensive release report HTML."""
-    
+
     # Load and process results
     results = load_release_results(plan)
     if not results:
         raise ValueError("No completed results found in plan")
-    
+
     safety_data = extract_safety_metrics(results)
     safety_tables = create_safety_state_tables(safety_data)
     improvement_tables = create_improvement_tables(safety_data)
-    
+
     # Calculate summary statistics
     total_jobs = len(plan.jobs)
     completed_jobs = len([job for job in plan.jobs if job.status == "completed"])
     failed_jobs = len([job for job in plan.jobs if job.status == "failed"])
-    
+
     total_cost = sum(
-        safety_data['costs'][model][combo]['total_usd']
-        for model in safety_data['costs']
-        for combo in safety_data['costs'][model]
+        safety_data["costs"][model][combo]["total_usd"]
+        for model in safety_data["costs"]
+        for combo in safety_data["costs"][model]
     )
-    
+
     # Generate timestamp
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # HTML template
     html_template = """
 <!DOCTYPE html>
@@ -423,7 +457,7 @@ def generate_release_report(plan: Plan, output_path: str) -> None:
 </body>
 </html>
     """
-    
+
     # Render template
     template = Template(html_template)
     html_content = template.render(
@@ -433,15 +467,15 @@ def generate_release_report(plan: Plan, output_path: str) -> None:
         failed_jobs=failed_jobs,
         success_rate=(completed_jobs / total_jobs * 100) if total_jobs > 0 else 0,
         total_cost=total_cost,
-        models=safety_data['models'],
-        categories=safety_data['categories'],
+        models=safety_data["models"],
+        categories=safety_data["categories"],
         safety_tables=safety_tables,
-        improvement_tables=improvement_tables
+        improvement_tables=improvement_tables,
     )
-    
+
     # Write report
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)

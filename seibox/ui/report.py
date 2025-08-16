@@ -14,7 +14,7 @@ from seibox.scoring.aggregate import aggregate_metrics
 
 def _get_trace_mitigations(trace):
     """Extract mitigations from trace, handling both old dict and new Trace formats."""
-    if hasattr(trace, 'mitigations'):
+    if hasattr(trace, "mitigations"):
         # New Trace format
         return trace.mitigations
     elif isinstance(trace, dict):
@@ -419,7 +419,7 @@ def generate_report(
         enhanced_examples = []
         for ex in examples:
             # Get prompt from trace or create placeholder
-            if hasattr(ex.trace, 'messages') and ex.trace.messages:
+            if hasattr(ex.trace, "messages") and ex.trace.messages:
                 # New Trace format - extract user message
                 user_messages = [msg for msg in ex.trace.messages if msg.role == "user"]
                 prompt = user_messages[0].content if user_messages else f"[Prompt for {ex.id}]"
@@ -492,53 +492,51 @@ def generate_report(
 
 def generate_model_reports(plan, reports_dir: str) -> None:
     """Generate per-model HTML reports for multiple categories.
-    
+
     Args:
         plan: Completed evaluation plan
         reports_dir: Directory to save reports in
     """
     from collections import defaultdict
-    
+
     # Group results by model
     model_results = defaultdict(list)
-    
+
     for job in plan.jobs:
         if job.status == "completed":
             result_file = Path(job.output_path)
             if result_file.exists():
-                model_results[job.model].append({
-                    'category': job.category,
-                    'result_file': str(result_file),
-                    'job': job
-                })
-    
+                model_results[job.model].append(
+                    {"category": job.category, "result_file": str(result_file), "job": job}
+                )
+
     # Generate report for each model
     reports_dir = Path(reports_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    
+
     for model, categories in model_results.items():
         # Sanitize model name for filename
         safe_model_name = model.replace(":", "_").replace("/", "_")
         output_path = reports_dir / f"{safe_model_name}.html"
-        
+
         # Load all results for this model
         all_records = []
         category_summaries = {}
-        
+
         for category_data in categories:
-            records = read_jsonl(category_data['result_file'])
+            records = read_jsonl(category_data["result_file"])
             records = [OutputRecord(**r) for r in records]
             all_records.extend(records)
-            
+
             # Get summary for this category
-            summary_path = Path(category_data['result_file']).with_suffix('.summary.json')
+            summary_path = Path(category_data["result_file"]).with_suffix(".summary.json")
             if summary_path.exists():
-                with open(summary_path, 'r') as f:
-                    category_summaries[category_data['category']] = json.load(f)
-        
+                with open(summary_path, "r") as f:
+                    category_summaries[category_data["category"]] = json.load(f)
+
         # Generate combined metrics
         combined_metrics = aggregate_metrics(all_records)
-        
+
         # Create multi-category template
         multi_template = """
 <!DOCTYPE html>
@@ -752,17 +750,17 @@ def generate_model_reports(plan, reports_dir: str) -> None:
 </body>
 </html>
         """
-        
+
         # Render template
         template = Template(multi_template)
         html_content = template.render(
             model_name=model,
-            categories=[cat['category'] for cat in categories],
+            categories=[cat["category"] for cat in categories],
             category_summaries=category_summaries,
             combined_metrics=combined_metrics,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         )
-        
+
         # Write report
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write(html_content)
