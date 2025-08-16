@@ -481,6 +481,74 @@ def render(path: str, n: int, out: str) -> None:
         console.print(f"  {preview}")
 
 
+@cli.command("export-review")
+@click.option("--runs", required=True, help="Path(s) to evaluation results JSONL file(s), supports wildcards")
+@click.option("--out", required=True, help="Output path for review file")
+@click.option("--format", "output_format", type=click.Choice(["csv", "jsonl"]), default="csv", help="Output format")
+def export_review(runs: str, out: str, output_format: str) -> None:
+    """Export evaluation results for human review and labeling."""
+    from seibox.tools.export_review import export_review as export_func
+    
+    try:
+        # Handle multiple paths
+        run_paths = [p.strip() for p in runs.split(",")]
+        
+        console.print(f"[blue]Exporting results for human review...[/blue]")
+        console.print(f"Input: {runs}")
+        console.print(f"Output: {out}")
+        console.print(f"Format: {output_format}")
+        
+        summary = export_func(run_paths, out, format=output_format)
+        
+        console.print(f"\n[bold green]✓[/bold green] Export completed")
+        console.print(f"Files processed: {summary['files_processed']}")
+        console.print(f"Records exported: {summary['records_exported']}")
+        console.print(f"Output: {summary['output_path']}")
+        
+        if output_format == "csv":
+            console.print(f"Columns: {summary['columns']}")
+            console.print(f"\n[dim]Open in spreadsheet app for human labeling[/dim]")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error exporting for review:[/bold red] {e}")
+        raise click.Abort()
+
+
+@cli.command("import-review")
+@click.option("--labels", required=True, help="Path to human labels file (CSV or JSONL)")
+@click.option("--out", required=True, help="Output path for normalized golden labels")
+def import_review(labels: str, out: str) -> None:
+    """Import human review labels and create normalized golden labels."""
+    from seibox.tools.import_review import import_review as import_func
+    
+    try:
+        console.print(f"[blue]Importing human labels...[/blue]")
+        console.print(f"Input: {labels}")
+        console.print(f"Output: {out}")
+        
+        summary = import_func(labels, out)
+        
+        console.print(f"\n[bold green]✓[/bold green] Import completed")
+        console.print(f"Format: {summary['format']}")
+        console.print(f"Rows processed: {summary['rows_processed']}")
+        if summary['rows_skipped'] > 0:
+            console.print(f"Rows skipped: [yellow]{summary['rows_skipped']}[/yellow]")
+        console.print(f"Golden labels created: {summary['total_labels']}")
+        console.print(f"Output: {summary['output_path']}")
+        
+        if summary['format'] == 'csv':
+            console.print(f"\n[dim]Used columns:[/dim]")
+            console.print(f"  Label: {summary['label_column']}")
+            if summary['reviewer_column']:
+                console.print(f"  Reviewer: {summary['reviewer_column']}")
+            if summary['notes_column']:
+                console.print(f"  Notes: {summary['notes_column']}")
+        
+    except Exception as e:
+        console.print(f"[bold red]Error importing labels:[/bold red] {e}")
+        raise click.Abort()
+
+
 @cli.command("sanitize-run")
 @click.option("--run", required=True, help="Path to evaluation results JSONL file to sanitize")
 @click.option("--out", required=True, help="Output path for sanitized results")

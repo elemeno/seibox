@@ -224,6 +224,96 @@ poetry run seibox render --path prompts.jsonl --n 3 --out preview.jsonl
 
 For complete documentation on writing prompts, template helpers, and best practices, see **[docs/authoring.md](docs/authoring.md)**.
 
+## Human Review and Labeling
+
+Export evaluation results for human review and import adjudications to improve golden datasets.
+
+### Export for Human Review
+
+Export evaluation results to CSV or JSONL for external labelers:
+
+```bash
+# Export single run to CSV (default)
+poetry run seibox export-review --runs runs/baseline.jsonl --out review/for_labeling.csv
+
+# Export multiple runs
+poetry run seibox export-review --runs "runs/baseline.jsonl,runs/mitigated.jsonl" --out review/combined.csv
+
+# Export to JSONL format
+poetry run seibox export-review --runs runs/baseline.jsonl --out review/data.jsonl --format jsonl
+
+# Export with wildcards
+poetry run seibox export-review --runs "runs/pii_*.jsonl" --out review/pii_review.csv
+```
+
+The exported CSV contains:
+- `id`, `suite`, `model`, `category` - Record identification
+- `prompt`, `assistant_text` - Input and output text
+- `should_block_gold`, `current_label` - Expected vs actual labels
+- `pii_entities_detected`, `injection_flags` - Detailed detection results
+- `notes` - Empty column for human annotations
+
+### Import Human Labels
+
+Import human adjudications and create normalized golden labels:
+
+```bash
+# Import from CSV with human labels
+poetry run seibox import-review --labels review/labeled.csv --out golden/v1/labels.jsonl
+
+# Import from JSONL
+poetry run seibox import-review --labels review/labels.jsonl --out golden/v1/labels.jsonl
+```
+
+The import process:
+- Accepts flexible column names (`human_label`, `blocked`, `decision`, `verdict`)
+- Normalizes various label formats to boolean `blocked` status
+- Extracts reviewer initials and timestamps
+- Creates standardized output format
+
+### Measure Agreement with Human Labels
+
+Use Cohen's kappa to measure agreement between automated scoring and human labels:
+
+```bash
+# Compare automated vs human labels
+poetry run seibox kappa --run runs/baseline.jsonl --labels golden/v1/labels.jsonl
+```
+
+Output includes:
+- Cohen's κ coefficient with interpretation
+- Agreement counts and percentages
+- Confusion matrix
+- Recommendations for improving automated scoring
+
+### Human Review Workflow
+
+1. **Run Evaluation**: Generate results with current automated scoring
+2. **Export for Review**: Create CSV/JSONL for human labelers
+3. **Human Labeling**: External team reviews and labels in spreadsheet/tool
+4. **Import Labels**: Convert human adjudications to standard format
+5. **Measure Agreement**: Use kappa to assess scorer quality
+6. **Iterate**: Improve automated scoring based on disagreements
+
+Example complete workflow:
+```bash
+# 1. Run evaluation
+poetry run seibox run --suite pii --model openai:gpt-4o-mini \
+  --config configs/eval_pi_injection.yaml --out runs/pii_v1.jsonl
+
+# 2. Export for human review
+poetry run seibox export-review --runs runs/pii_v1.jsonl --out review/pii_for_labeling.csv
+
+# 3. Send review/pii_for_labeling.csv to human labelers
+# 4. Receive back labeled file as review/pii_labeled.csv
+
+# 5. Import human labels
+poetry run seibox import-review --labels review/pii_labeled.csv --out golden/pii_v1/labels.jsonl
+
+# 6. Measure agreement
+poetry run seibox kappa --run runs/pii_v1.jsonl --labels golden/pii_v1/labels.jsonl
+```
+
 ## Using Prompt Packs
 
 Prompt packs are portable bundles of evaluation prompts that can be shared and imported across teams.

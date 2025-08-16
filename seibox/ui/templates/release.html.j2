@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Safety-Evals-in-a-Box — Release Report {{ meta.tag or "" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --fg:#101418; --muted:#6b7280; --ok:#0b7a0b; --bad:#b71c1c; --card:#f8fafc; --table:#f1f5f9; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell; color: var(--fg); margin: 24px; }
+    h1,h2,h3 { margin: 0.4rem 0; }
+    .muted { color: var(--muted); }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .card { background: var(--card); padding: 12px 14px; border-radius: 12px; box-shadow: 0 1px 0 #e5e7eb inset; }
+    .cards .card { min-width: 220px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    thead { background: var(--table); }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+    .good { background: #e6f6e6; color: var(--ok); }
+    .bad { background: #fde8e8; color: var(--bad); }
+    .neutral { background: #eef2f7; color: #374151; }
+    .small { font-size: 12px; color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .section { margin-top: 28px; }
+    .nowrap { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <header class="section">
+    <h1>Safety-Evals-in-a-Box — Release Report {{ meta.tag or "" }}</h1>
+    <div class="muted small">Commit <span class="mono">{{ meta.commit or "—" }}</span> · Seed {{ meta.seed or "—" }}</div>
+  </header>
+
+  <section class="section cards">
+    <div class="row">
+      {% for c in cards %}
+      <div class="card">
+        <div class="small muted">{{ c.label }}</div>
+        <div style="font-size: 20px; font-weight: 700; margin-top: 2px;">
+          {{ c.value }}
+          {% if c.good is not none %}
+            <span class="badge {{ 'good' if c.good else 'bad' }}">{{ 'good' if c.good else 'bad' }}</span>
+          {% endif %}
+        </div>
+        {% if c.subtitle %}<div class="small">{{ c.subtitle }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Landscape at a glance <span class="small muted">(profile: {{ baseline_profile }})</span></h2>
+    {% set cats = landscape.rows %}
+    {% set mods = landscape.cols %}
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Category \\ Model</th>
+            {% for m in mods %}<th class="nowrap">{{ m }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in cats %}
+          <tr>
+            <td class="nowrap"><strong>{{ cat }}</strong></td>
+            {% for mod in mods %}
+              {% set cell = landscape.cells[(cat, mod)] %}
+              {% if cell %}
+                <td>
+                  <div><strong>{{ fmt.pct(cell.get('safety_coverage')) }}</strong></div>
+                  <div class="small">benign {{ fmt.pct(cell.get('benign_pass_rate')) }}</div>
+                  <div class="small">inj {{ fmt.pct(cell.get('injection_success_rate')) }}</div>
+                </td>
+              {% else %}
+                <td>—</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Per-profile tables</h2>
+    {% for prof in profiles %}
+      {% set tab = per_profile_tables[prof] %}
+      <h3 style="margin-top: 16px;">Profile: <span class="mono">{{ prof }}</span></h3>
+      {% set cats = tab.rows %}
+      {% set mods = tab.cols %}
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Category \\ Model</th>
+              {% for m in mods %}<th class="nowrap">{{ m }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat in cats %}
+            <tr>
+              <td class="nowrap"><strong>{{ cat }}</strong></td>
+              {% for mod in mods %}
+                {% set cell = tab.cells[(cat, mod)] %}
+                {% if cell %}
+                  <td>
+                    <div><strong>{{ fmt.pct(cell.get('safety_coverage')) }}</strong> <span class="small">{{ fmt.ci(cell.get('safety_coverage_ci')) }}</span></div>
+                    <div class="small">benign {{ fmt.pct(cell.get('benign_pass_rate')) }} {{ fmt.ci(cell.get('benign_pass_rate_ci')) }}</div>
+                    <div class="small">inj {{ fmt.pct(cell.get('injection_success_rate')) }} {{ fmt.ci(cell.get('injection_success_rate_ci')) }}</div>
+                  </td>
+                {% else %}
+                  <td>—</td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  </section>
+
+  <section class="section">
+    <h2>Costs, tokens & latency (per model)</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Total Cost</th>
+            <th>Tokens In</th>
+            <th>Tokens Out</th>
+            <th>Median p95</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in per_model_costs %}
+          <tr>
+            <td class="nowrap mono">{{ row.model }}</td>
+            <td>{{ fmt.money(row.cost_usd) }}</td>
+            <td>{{ "{:,}".format(row.tokens_in) }}</td>
+            <td>{{ "{:,}".format(row.tokens_out) }}</td>
+            <td>{{ fmt.ms(row.p95_ms) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if golden and golden|length > 0 %}
+  <section class="section">
+    <h2>Golden set comparisons</h2>
+    <!--
+      Expect golden to contain a structure like:
+      {
+        "pii": {"safety_coverage": {"golden":0.965,"current":0.942,"delta_pp":-2.3}, ...},
+        "injection": {...},
+        "benign": {...}
+      }
+      This is a stub view; customize once golden comparator lands.
+    -->
+    {% for cat, metrics in golden.items() %}
+    <h3>{{ cat }}</h3>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>Metric</th><th>Golden</th><th>Current</th><th>Δ pp</th></tr>
+        </thead>
+        <tbody>
+          {% for name, vals in metrics.items() %}
+          {% set delta = vals.get("delta_pp") %}
+          {% set cls = 'good' if (name == 'injection_success_rate' and delta < 0) or (name != 'injection_success_rate' and delta > 0) else 'bad' %}
+          <tr>
+            <td class="nowrap mono">{{ name }}</td>
+            <td>{{ fmt.pct(vals.get("golden")) }}</td>
+            <td>{{ fmt.pct(vals.get("current")) }}</td>
+            <td><span class="badge {{ cls }}">{{ "%.1f" % (delta or 0.0) }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <footer class="section small muted">
+    Generated by Safety-Evals-in-a-Box
+  </footer>
+</body>
+</html>
