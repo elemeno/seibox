@@ -11,17 +11,14 @@ Usage:
         matrix_parquet="out/release/<tag>/aggregates/matrix.parquet",
         golden_json="out/release/<tag>/aggregates/golden_compare.json",
         out_html="out/release/<tag>/reports/release.html",
-        tag="v0.2.0",
-        commit="abc1234",
-        seed=42,
     )
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 import json
 import math
@@ -33,24 +30,17 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 def render_release_report(
-    matrix_parquet: str,
-    golden_json: Optional[str],
-    out_html: str,
-    *,
-    tag: Optional[str] = None,
-    commit: Optional[str] = None,
-    seed: Optional[int] = None,
+    matrix_parquet: str, 
+    golden_json: Optional[str], 
+    out_html: str
 ) -> None:
     """
-    Render the release HTML report.
-
+    Load data, compute derived views, render with Jinja2.
+    
     Args:
         matrix_parquet: Path to aggregates/matrix.parquet produced by the release runner.
         golden_json: Optional path to aggregates/golden_compare.json.
         out_html: Destination HTML file path.
-        tag: Optional git tag string (e.g., "v0.2.0").
-        commit: Optional short commit SHA.
-        seed: Optional global seed used for the run.
 
     Side effects:
         Writes a single HTML file at out_html.
@@ -64,197 +54,201 @@ def render_release_report(
     if df.empty:
         raise ValueError("matrix parquet is empty; nothing to render")
 
-    golden = _load_json(golden_json) if golden_json else None
+    golden_data = _load_json(golden_json) if golden_json else None
 
-    # Basic fields we expect in df:
-    # ['model','category','profile','metric','value','n','ci_low','ci_high',
-    #  'cost_total_usd','tokens_in','tokens_out','p95_ms','config_hash','errors?']
-    # TODO: firm up with a schema check if helpful.
-
-    meta = _collect_meta(df, tag=tag, commit=commit, seed=seed)
-
-    # Summary cards
-    cards = _build_summary_cards(df)
-
-    # Landscape (baseline) pivot – primary “at a glance” table.
-    baseline_profile = "baseline"
-    landscape = _build_landscape(df, profile=baseline_profile)
-
-    # Per-profile tables
+    # Build report data structures
+    metadata = _build_metadata()
+    summary = _build_summary(df)
     profiles = sorted(df["profile"].unique().tolist())
-    per_profile_tables = {p: _build_landscape(df, profile=p) for p in profiles}
-
-    # Per-model rollups (costs/tokens/latency)
-    per_model_costs = _build_model_costs(df)
+    categories = sorted(df["category"].unique().tolist())
+    models = sorted(df["model"].unique().tolist())
+    heatmap_data = _build_heatmap_data(df, profiles, categories, models)
+    profile_tables = _build_profile_tables(df, profiles)
+    cost_table = _build_cost_table(df)
 
     # Bundle context for the template
-    ctx = ReportContext(
-        meta=meta,
-        cards=cards,
-        baseline_profile=baseline_profile,
-        profiles=profiles,
-        landscape=landscape,
-        per_profile_tables=per_profile_tables,
-        per_model_costs=per_model_costs,
-        golden=golden or {},
-    )
+    context = {
+        "metadata": metadata,
+        "summary": summary,
+        "profiles": profiles,
+        "categories": categories,
+        "models": models,
+        "heatmap_data": heatmap_data,
+        "profile_tables": profile_tables,
+        "cost_table": cost_table,
+        "golden_data": golden_data,
+    }
 
-    html = _render_template("release.html.j2", ctx.to_jinja())
+    html = _render_template("release.html.j2", context)
 
     out_path = Path(out_html)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
 
 
-# ---------- Data structures ----------
-
-
-@dataclass
-class SummaryCard:
-    label: str
-    value: str
-    subtitle: str | None = None
-    good: bool | None = None  # True/False for green/red badge, None neutral
-
-
-@dataclass
-class ReportMeta:
-    tag: str | None
-    commit: str | None
-    seed: int | None
-
-
-@dataclass
-class ReportContext:
-    meta: ReportMeta
-    cards: List[SummaryCard]
-    baseline_profile: str
-    profiles: List[str]
-    landscape: Dict[str, Any]
-    per_profile_tables: Dict[str, Dict[str, Any]]
-    per_model_costs: pd.DataFrame
-    golden: Dict[str, Any]
-
-    def to_jinja(self) -> Dict[str, Any]:
-        return {
-            "meta": self.meta.__dict__,
-            "cards": [c.__dict__ for c in self.cards],
-            "baseline_profile": self.baseline_profile,
-            "profiles": self.profiles,
-            "landscape": self.landscape,
-            "per_profile_tables": self.per_profile_tables,
-            "per_model_costs": _df_to_records(self.per_model_costs),
-            "golden": self.golden,
-            "fmt": {
-                "pct": fmt_pct,
-                "money": fmt_money,
-                "ms": fmt_ms,
-                "ci": fmt_ci,
-            },
-        }
-
-
 # ---------- Builders ----------
 
 
-def _collect_meta(
-    df: pd.DataFrame, *, tag: str | None, commit: str | None, seed: int | None
-) -> ReportMeta:
-    return ReportMeta(tag=tag, commit=commit, seed=seed)
+def _build_metadata() -> Dict[str, Any]:
+    """Build metadata section."""
+    return {
+        "tag": "dev",
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "commit": "N/A",
+        "seed": "N/A",
+    }
 
 
-def _build_summary_cards(df: pd.DataFrame) -> List[SummaryCard]:
-    """
-    Very lightweight “best of” summary. Refine once metrics are finalized.
-    Expects metrics: 'safety_coverage', 'benign_pass_rate', 'injection_success_rate' (lower better),
-    and globals like cost/latency in rows or computed from df.
-    """
-
-    def best(metric: str, higher_is_better: bool = True) -> tuple[str, float]:
+def _build_summary(df: pd.DataFrame) -> Dict[str, Any]:
+    """Build summary cards data."""
+    
+    def best_metric(metric: str, higher_is_better: bool = True) -> tuple[str, float]:
         sub = df[df["metric"] == metric][["model", "value"]]
         if sub.empty:
-            return ("—", float("nan"))
+            return ("—", 0.0)
         row = sub.loc[sub["value"].idxmax()] if higher_is_better else sub.loc[sub["value"].idxmin()]
         return (str(row["model"]), float(row["value"]))
 
-    best_cov_model, best_cov = best("safety_coverage", True)
-    best_benign_model, best_benign = best("benign_pass_rate", True)
-    best_inj_model, best_inj = best("injection_success_rate", False)
+    best_cov_model, best_cov = best_metric("coverage", True)
+    best_benign_model, best_benign = best_metric("benign_pass_rate", True)
+    best_inj_model, best_inj = best_metric("injection_success_rate", False)
 
-    total_cost = (
-        df.drop_duplicates(subset=["model", "category", "profile"])
-        .groupby("model")["cost_total_usd"]
-        .sum()
-        .sum()
-    )
-    p95 = df["p95_ms"].median() if "p95_ms" in df else float("nan")
+    # Calculate totals
+    total_cost = df["cost_total_usd"].sum()
+    total_tokens = int(df["tokens_in"].sum() + df["tokens_out"].sum())
+    p95_latency = df["p95_ms"].median()
 
-    cards = [
-        SummaryCard("Best safety coverage", f"{fmt_pct(best_cov)} ({best_cov_model})", good=True),
-        SummaryCard("Best benign pass", f"{fmt_pct(best_benign)} ({best_benign_model})", good=True),
-        SummaryCard(
-            "Lowest injection success", f"{fmt_pct(best_inj)} ({best_inj_model})", good=True
-        ),
-        SummaryCard("Total cost (approx)", fmt_money(total_cost)),
-        SummaryCard("Median p95 latency", fmt_ms(p95)),
-    ]
-    return cards
+    return {
+        "best_coverage": best_cov,
+        "best_coverage_model": best_cov_model.replace("openai:", ""),
+        "best_benign_pass": best_benign,
+        "best_benign_model": best_benign_model.replace("openai:", ""),
+        "lowest_injection": best_inj,
+        "lowest_injection_model": best_inj_model.replace("openai:", ""),
+        "total_cost": total_cost,
+        "total_tokens": total_tokens,
+        "p95_latency": p95_latency,
+    }
 
 
-def _build_landscape(df: pd.DataFrame, *, profile: str) -> Dict[str, Any]:
-    """
-    Returns a dict with:
-      - rows: list of categories
-      - cols: list of models
-      - cells: mapping[(category, model)] -> dict of key metrics + CI
-    """
-    subset = df[df["profile"] == profile].copy()
-    categories = sorted(subset["category"].unique().tolist())
-    models = sorted(subset["model"].unique().tolist())
+def _build_heatmap_data(df: pd.DataFrame, profiles: List[str], categories: List[str], models: List[str]) -> Dict[str, Any]:
+    """Build heatmap data for all profiles."""
+    heatmap_data = {}
+    
+    for profile in profiles:
+        profile_data = {}
+        
+        for category in categories:
+            category_data = {}
+            
+            for model in models:
+                # Get coverage data for this model/category/profile
+                subset = df[
+                    (df["profile"] == profile) & 
+                    (df["category"] == category) & 
+                    (df["model"] == model) & 
+                    (df["metric"] == "coverage")
+                ]
+                
+                if not subset.empty:
+                    row = subset.iloc[0]
+                    coverage = float(row["value"])
+                    ci_low = float(row["ci_low"]) if pd.notna(row["ci_low"]) else coverage
+                    ci_high = float(row["ci_high"]) if pd.notna(row["ci_high"]) else coverage
+                    ci_width = (ci_high - ci_low) / 2
+                    
+                    # Color coding based on coverage (0-10 scale)
+                    color_scale = min(10, max(0, int(coverage * 10)))
+                    css_class = f"coverage-{color_scale}"
+                    
+                    category_data[model] = {
+                        "coverage": coverage,
+                        "coverage_ci_width": ci_width,
+                        "css_class": css_class,
+                    }
+                else:
+                    category_data[model] = {
+                        "coverage": 0.0,
+                        "coverage_ci_width": 0.0,
+                        "css_class": "coverage-0",
+                    }
+            
+            profile_data[category] = category_data
+        
+        heatmap_data[profile] = profile_data
+    
+    return heatmap_data
 
-    key_metrics = ("safety_coverage", "benign_pass_rate", "injection_success_rate")
-    cells: Dict[tuple[str, str], Dict[str, Any]] = {}
 
-    for cat in categories:
-        for mod in models:
-            row = subset[(subset["category"] == cat) & (subset["model"] == mod)]
-            cell: Dict[str, Any] = {}
-            for m in key_metrics:
-                metric_row = row[row["metric"] == m]
-                if metric_row.empty:
-                    cell[m] = None
-                    cell[m + "_ci"] = None
-                    continue
-                # If multiple rows per metric exist, take the last (or mean)
-                metric_row = metric_row.iloc[-1]
-                cell[m] = float(metric_row["value"])
-                ci = (metric_row.get("ci_low"), metric_row.get("ci_high"))
-                cell[m + "_ci"] = (float(ci[0]), float(ci[1])) if all(pd.notna(ci)) else None
-            cells[(cat, mod)] = cell
+def _build_profile_tables(df: pd.DataFrame, profiles: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Build detailed tables for each profile."""
+    profile_tables = {}
+    
+    for profile in profiles:
+        profile_df = df[df["profile"] == profile]
+        
+        # Group by model and category to create rows
+        grouped = profile_df.groupby(["model", "category"])
+        
+        rows = []
+        for (model, category), group in grouped:
+            row = {"model": model, "category": category}
+            
+            # Extract metrics
+            for metric in ["coverage", "benign_pass_rate", "false_positive_rate", "injection_success_rate"]:
+                metric_data = group[group["metric"] == metric]
+                if not metric_data.empty:
+                    metric_row = metric_data.iloc[0]
+                    value = float(metric_row["value"])
+                    ci_low = float(metric_row["ci_low"]) if pd.notna(metric_row["ci_low"]) else value
+                    ci_high = float(metric_row["ci_high"]) if pd.notna(metric_row["ci_high"]) else value
+                    ci_text = f"±{((ci_high - ci_low) * 50):.1f}pp"
+                    
+                    row[metric] = value
+                    row[f"{metric}_ci"] = ci_text
+                else:
+                    row[metric] = 0.0
+                    row[f"{metric}_ci"] = ""
+            
+            rows.append(row)
+        
+        profile_tables[profile] = rows
+    
+    return profile_tables
 
-    return {"rows": categories, "cols": models, "cells": cells}
 
-
-def _build_model_costs(df: pd.DataFrame) -> pd.DataFrame:
-    # One row per model with total cost/tokens/p95 (aggregate across categories & profiles)
-    grp = (
-        df.drop_duplicates(subset=["model", "category", "profile"])
-        .groupby("model", as_index=False)
-        .agg(
-            cost_usd=("cost_total_usd", "sum"),
-            tokens_in=("tokens_in", "sum"),
-            tokens_out=("tokens_out", "sum"),
-            p95_ms=("p95_ms", "median"),
-        )
-    )
-    # Sort by cost descending for visibility
-    return grp.sort_values("cost_usd", ascending=False)
+def _build_cost_table(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Build cost and token usage table."""
+    
+    # Group by model to aggregate costs and tokens
+    grouped = df.groupby("model").agg({
+        "cost_total_usd": "sum",
+        "tokens_in": "sum", 
+        "tokens_out": "sum",
+    }).reset_index()
+    
+    rows = []
+    for _, row in grouped.iterrows():
+        total_tokens = int(row["tokens_in"] + row["tokens_out"])
+        cost_per_1k = (row["cost_total_usd"] / total_tokens * 1000) if total_tokens > 0 else 0.0
+        
+        rows.append({
+            "model": row["model"],
+            "total_cost": row["cost_total_usd"],
+            "input_tokens": int(row["tokens_in"]),
+            "output_tokens": int(row["tokens_out"]),
+            "total_tokens": total_tokens,
+            "cost_per_1k": cost_per_1k,
+        })
+    
+    return sorted(rows, key=lambda x: x["total_cost"], reverse=True)
 
 
 # ---------- Template rendering ----------
 
 
 def _render_template(template_name: str, context: Dict[str, Any]) -> str:
+    """Render template with context."""
     # Template dir: seibox/ui/templates/
     base_dir = Path(__file__).parent
     tmpl_dir = base_dir / "templates"
@@ -264,10 +258,12 @@ def _render_template(template_name: str, context: Dict[str, Any]) -> str:
         trim_blocks=True,
         lstrip_blocks=True,
     )
-    env.filters["pct"] = fmt_pct
-    env.filters["money"] = fmt_money
-    env.filters["ms"] = fmt_ms
-    env.filters["ci"] = fmt_ci
+    
+    # Add custom filters for formatting
+    env.filters["format_pct"] = _format_pct
+    env.filters["format_money"] = _format_money
+    env.filters["format_ci"] = _format_ci
+    
     template = env.get_template(template_name)
     return template.render(**context)
 
@@ -276,6 +272,7 @@ def _render_template(template_name: str, context: Dict[str, Any]) -> str:
 
 
 def _load_json(path: Optional[str]) -> Dict[str, Any]:
+    """Load JSON file safely."""
     if not path:
         return {}
     p = Path(path)
@@ -284,32 +281,25 @@ def _load_json(path: Optional[str]) -> Dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def _df_to_records(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    return json.loads(df.to_json(orient="records"))
-
-
-def fmt_pct(x: Optional[float]) -> str:
+def _format_pct(x: Optional[float]) -> str:
+    """Format value as percentage."""
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "—"
     return f"{100.0 * float(x):.1f}%"
 
 
-def fmt_money(x: Optional[float]) -> str:
+def _format_money(x: Optional[float]) -> str:
+    """Format value as currency."""
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "—"
-    return f"${float(x):.2f}"
+    return f"${float(x):.4f}"
 
 
-def fmt_ms(x: Optional[float]) -> str:
-    if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
-        return "—"
-    return f"{float(x):.0f} ms"
-
-
-def fmt_ci(ci: Optional[tuple[float, float]]) -> str:
-    if not ci or any(
-        c is None or (isinstance(c, float) and (math.isnan(c) or math.isinf(c))) for c in ci
-    ):
+def _format_ci(ci_low: Optional[float], ci_high: Optional[float]) -> str:
+    """Format confidence interval as ± range."""
+    if ci_low is None or ci_high is None:
         return ""
-    low, high = ci
-    return f"± {((high - low) * 50):.1f} pp"  # rough symmetric pp width (for compact display)
+    if math.isnan(ci_low) or math.isnan(ci_high) or math.isinf(ci_low) or math.isinf(ci_high):
+        return ""
+    width = (ci_high - ci_low) * 50  # Convert to percentage points
+    return f"±{width:.1f}pp"

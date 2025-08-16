@@ -1,195 +1,467 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Safety-Evals-in-a-Box — Release Report {{ meta.tag or "" }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root { --fg:#101418; --muted:#6b7280; --ok:#0b7a0b; --bad:#b71c1c; --card:#f8fafc; --table:#f1f5f9; }
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell; color: var(--fg); margin: 24px; }
-    h1,h2,h3 { margin: 0.4rem 0; }
-    .muted { color: var(--muted); }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; }
-    .card { background: var(--card); padding: 12px 14px; border-radius: 12px; box-shadow: 0 1px 0 #e5e7eb inset; }
-    .cards .card { min-width: 220px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; }
-    th:first-child, td:first-child { text-align: left; }
-    thead { background: var(--table); }
-    .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
-    .good { background: #e6f6e6; color: var(--ok); }
-    .bad { background: #fde8e8; color: var(--bad); }
-    .neutral { background: #eef2f7; color: #374151; }
-    .small { font-size: 12px; color: var(--muted); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    .section { margin-top: 28px; }
-    .nowrap { white-space: nowrap; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Evals Release Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 2.5em;
+        }
+        .header .meta {
+            color: #6c757d;
+            margin-top: 10px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .meta span {
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        /* Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .card.success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .card.warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .card.info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .card.cost { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333; }
+        
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .card .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 0;
+        }
+        .card .subtitle {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        /* Section headers */
+        .section {
+            margin: 40px 0;
+        }
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        /* Profile switcher */
+        .profile-switcher {
+            margin-bottom: 20px;
+        }
+        .profile-switcher button {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 8px 16px;
+            margin-right: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .profile-switcher button.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .profile-switcher button:hover {
+            background: #e9ecef;
+        }
+        .profile-switcher button.active:hover {
+            background: #0056b3;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Heatmap table */
+        .heatmap-table {
+            font-size: 0.9em;
+        }
+        .heatmap-table td, .heatmap-table th {
+            text-align: center;
+            padding: 8px 12px;
+            position: relative;
+        }
+        .heatmap-table th:first-child,
+        .heatmap-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        /* Heatmap colors for coverage (good when high) */
+        .coverage-0 { background-color: #fee; }
+        .coverage-1 { background-color: #fdd; }
+        .coverage-2 { background-color: #fcc; }
+        .coverage-3 { background-color: #fbb; }
+        .coverage-4 { background-color: #faa; }
+        .coverage-5 { background-color: #f99; }
+        .coverage-6 { background-color: #bfb; }
+        .coverage-7 { background-color: #afa; }
+        .coverage-8 { background-color: #9f9; }
+        .coverage-9 { background-color: #8f8; }
+        .coverage-10 { background-color: #7f7; }
+        
+        /* CI display */
+        .ci {
+            font-size: 0.8em;
+            color: #6c757d;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        /* Golden comparison badges */
+        .delta-badge {
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .delta-improved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .delta-degraded {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .delta-stable {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .delta-no-baseline {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            .heatmap-table {
+                font-size: 0.8em;
+            }
+            .heatmap-table td, .heatmap-table th {
+                padding: 6px 8px;
+            }
+            .meta {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+        
+        /* Hidden by default, shown with JS */
+        .profile-content {
+            display: none;
+        }
+        .profile-content.active {
+            display: block;
+        }
+    </style>
 </head>
 <body>
-  <header class="section">
-    <h1>Safety-Evals-in-a-Box — Release Report {{ meta.tag or "" }}</h1>
-    <div class="muted small">Commit <span class="mono">{{ meta.commit or "—" }}</span> · Seed {{ meta.seed or "—" }}</div>
-  </header>
-
-  <section class="section cards">
-    <div class="row">
-      {% for c in cards %}
-      <div class="card">
-        <div class="small muted">{{ c.label }}</div>
-        <div style="font-size: 20px; font-weight: 700; margin-top: 2px;">
-          {{ c.value }}
-          {% if c.good is not none %}
-            <span class="badge {{ 'good' if c.good else 'bad' }}">{{ 'good' if c.good else 'bad' }}</span>
-          {% endif %}
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Safety Evals Release Report</h1>
+            <div class="meta">
+                <span><strong>Tag:</strong> {{ metadata.tag or 'dev' }}</span>
+                <span><strong>Date:</strong> {{ metadata.date }}</span>
+                <span><strong>Commit:</strong> {{ metadata.commit or 'N/A' }}</span>
+                <span><strong>Seed:</strong> {{ metadata.seed or 'N/A' }}</span>
+            </div>
         </div>
-        {% if c.subtitle %}<div class="small">{{ c.subtitle }}</div>{% endif %}
-      </div>
-      {% endfor %}
-    </div>
-  </section>
 
-  <section class="section">
-    <h2>Landscape at a glance <span class="small muted">(profile: {{ baseline_profile }})</span></h2>
-    {% set cats = landscape.rows %}
-    {% set mods = landscape.cols %}
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Category \\ Model</th>
-            {% for m in mods %}<th class="nowrap">{{ m }}</th>{% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for cat in cats %}
-          <tr>
-            <td class="nowrap"><strong>{{ cat }}</strong></td>
-            {% for mod in mods %}
-              {% set cell = landscape.cells[(cat, mod)] %}
-              {% if cell %}
-                <td>
-                  <div><strong>{{ fmt.pct(cell.get('safety_coverage')) }}</strong></div>
-                  <div class="small">benign {{ fmt.pct(cell.get('benign_pass_rate')) }}</div>
-                  <div class="small">inj {{ fmt.pct(cell.get('injection_success_rate')) }}</div>
-                </td>
-              {% else %}
-                <td>—</td>
-              {% endif %}
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card success">
+                <h3>Best Coverage</h3>
+                <div class="value">{{ "%.1f%%" | format(summary.best_coverage * 100) }}</div>
+                <div class="subtitle">{{ summary.best_coverage_model }}</div>
+            </div>
+            <div class="card success">
+                <h3>Best Benign Pass</h3>
+                <div class="value">{{ "%.1f%%" | format(summary.best_benign_pass * 100) }}</div>
+                <div class="subtitle">{{ summary.best_benign_model }}</div>
+            </div>
+            <div class="card warning">
+                <h3>Lowest Injection Success</h3>
+                <div class="value">{{ "%.1f%%" | format(summary.lowest_injection * 100) }}</div>
+                <div class="subtitle">{{ summary.lowest_injection_model }}</div>
+            </div>
+            <div class="card cost">
+                <h3>Total Cost</h3>
+                <div class="value">${{ "%.4f" | format(summary.total_cost) }}</div>
+                <div class="subtitle">{{ "{:,}".format(summary.total_tokens) }} tokens</div>
+            </div>
+            <div class="card info">
+                <h3>P95 Latency</h3>
+                <div class="value">{{ "%.0f" | format(summary.p95_latency) }}ms</div>
+                <div class="subtitle">Across all calls</div>
+            </div>
+        </div>
+
+        <!-- Landscape Heatmap -->
+        <div class="section">
+            <h2>Landscape Heatmap</h2>
+            <div class="profile-switcher">
+                {% for profile in profiles %}
+                <button onclick="switchProfile('{{ profile }}')" 
+                        class="profile-btn {% if profile == 'baseline' %}active{% endif %}"
+                        id="btn-{{ profile }}">{{ profile.title() }}</button>
+                {% endfor %}
+            </div>
+            
+            {% for profile in profiles %}
+            <div id="heatmap-{{ profile }}" class="profile-content {% if profile == 'baseline' %}active{% endif %}">
+                <table class="heatmap-table">
+                    <thead>
+                        <tr>
+                            <th>Category / Model</th>
+                            {% for model in models %}
+                            <th>{{ model.replace('openai:', '').replace('anthropic:', '') }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for category in categories %}
+                        <tr>
+                            <td>{{ category.upper() }}</td>
+                            {% for model in models %}
+                            {% set cell_data = heatmap_data[profile][category][model] %}
+                            <td class="{{ cell_data.css_class }}">
+                                <strong>{{ "%.1f%%" | format(cell_data.coverage * 100) }}</strong>
+                                <span class="ci">±{{ "%.1f" | format(cell_data.coverage_ci_width * 100) }}pp</span>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+        </div>
 
-  <section class="section">
-    <h2>Per-profile tables</h2>
-    {% for prof in profiles %}
-      {% set tab = per_profile_tables[prof] %}
-      <h3 style="margin-top: 16px;">Profile: <span class="mono">{{ prof }}</span></h3>
-      {% set cats = tab.rows %}
-      {% set mods = tab.cols %}
-      <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Category \\ Model</th>
-              {% for m in mods %}<th class="nowrap">{{ m }}</th>{% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for cat in cats %}
-            <tr>
-              <td class="nowrap"><strong>{{ cat }}</strong></td>
-              {% for mod in mods %}
-                {% set cell = tab.cells[(cat, mod)] %}
-                {% if cell %}
-                  <td>
-                    <div><strong>{{ fmt.pct(cell.get('safety_coverage')) }}</strong> <span class="small">{{ fmt.ci(cell.get('safety_coverage_ci')) }}</span></div>
-                    <div class="small">benign {{ fmt.pct(cell.get('benign_pass_rate')) }} {{ fmt.ci(cell.get('benign_pass_rate_ci')) }}</div>
-                    <div class="small">inj {{ fmt.pct(cell.get('injection_success_rate')) }} {{ fmt.ci(cell.get('injection_success_rate_ci')) }}</div>
-                  </td>
-                {% else %}
-                  <td>—</td>
-                {% endif %}
-              {% endfor %}
-            </tr>
+        <!-- Per-Profile Tables -->
+        <div class="section">
+            <h2>Detailed Metrics by Profile</h2>
+            {% for profile in profiles %}
+            <h3>{{ profile.title() }} Profile</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Category</th>
+                        <th>Coverage</th>
+                        <th>Benign Pass Rate</th>
+                        <th>False Positive Rate</th>
+                        <th>Injection Success</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in profile_tables[profile] %}
+                    <tr>
+                        <td>{{ row.model.replace('openai:', '').replace('anthropic:', '') }}</td>
+                        <td>{{ row.category.upper() }}</td>
+                        <td>
+                            {{ "%.1f%%" | format(row.coverage * 100) }}
+                            <span class="ci">{{ row.coverage_ci }}</span>
+                        </td>
+                        <td>
+                            {{ "%.1f%%" | format(row.benign_pass_rate * 100) }}
+                            <span class="ci">{{ row.benign_pass_rate_ci }}</span>
+                        </td>
+                        <td>
+                            {{ "%.1f%%" | format(row.false_positive_rate * 100) }}
+                            <span class="ci">{{ row.false_positive_rate_ci }}</span>
+                        </td>
+                        <td>
+                            {{ "%.1f%%" | format(row.injection_success_rate * 100) }}
+                            <span class="ci">{{ row.injection_success_rate_ci }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% endfor %}
-  </section>
+        </div>
 
-  <section class="section">
-    <h2>Costs, tokens & latency (per model)</h2>
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Total Cost</th>
-            <th>Tokens In</th>
-            <th>Tokens Out</th>
-            <th>Median p95</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in per_model_costs %}
-          <tr>
-            <td class="nowrap mono">{{ row.model }}</td>
-            <td>{{ fmt.money(row.cost_usd) }}</td>
-            <td>{{ "{:,}".format(row.tokens_in) }}</td>
-            <td>{{ "{:,}".format(row.tokens_out) }}</td>
-            <td>{{ fmt.ms(row.p95_ms) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+        <!-- Cost and Tokens -->
+        <div class="section">
+            <h2>Cost and Token Usage</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Total Cost (USD)</th>
+                        <th>Input Tokens</th>
+                        <th>Output Tokens</th>
+                        <th>Total Tokens</th>
+                        <th>Avg Cost per 1K</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cost_table %}
+                    <tr>
+                        <td>{{ row.model.replace('openai:', '').replace('anthropic:', '') }}</td>
+                        <td>${{ "%.4f" | format(row.total_cost) }}</td>
+                        <td>{{ "{:,}".format(row.input_tokens|int) }}</td>
+                        <td>{{ "{:,}".format(row.output_tokens|int) }}</td>
+                        <td>{{ "{:,}".format(row.total_tokens|int) }}</td>
+                        <td>${{ "%.3f" | format(row.cost_per_1k) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Golden Comparison -->
+        {% if golden_data %}
+        <div class="section">
+            <h2>Golden Comparison</h2>
+            <p><strong>Baseline:</strong> {{ golden_data.message }}</p>
+            
+            {% for category, metrics in golden_data.comparisons.items() %}
+            <h3>{{ category.upper() }} Category</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Model/Profile</th>
+                        <th>Current</th>
+                        <th>Golden</th>
+                        <th>Δ (pp)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for metric_name, comparisons in metrics.items() %}
+                    {% for model_profile, comparison in comparisons.items() %}
+                    <tr>
+                        <td>{{ metric_name.replace('_', ' ').title() }}</td>
+                        <td>{{ model_profile.replace('openai:', '').replace('_', ' / ') }}</td>
+                        <td>{{ "%.1f%%" | format(comparison.current * 100) }}</td>
+                        <td>{{ "%.1f%%" | format(comparison.golden * 100) }}</td>
+                        <td>{{ "%+.1f" | format(comparison.delta_pp) }}</td>
+                        <td>
+                            <span class="delta-badge delta-{{ comparison.status }}">
+                                {{ comparison.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+            
+            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <strong>Summary:</strong>
+                {{ golden_data.summary.improved }} improved, 
+                {{ golden_data.summary.degraded }} degraded, 
+                {{ golden_data.summary.stable }} stable
+                ({{ "%.1f%%" | format(golden_data.summary.improvement_rate * 100) }} improvement rate)
+            </div>
+        </div>
+        {% endif %}
     </div>
-  </section>
 
-  {% if golden and golden|length > 0 %}
-  <section class="section">
-    <h2>Golden set comparisons</h2>
-    <!--
-      Expect golden to contain a structure like:
-      {
-        "pii": {"safety_coverage": {"golden":0.965,"current":0.942,"delta_pp":-2.3}, ...},
-        "injection": {...},
-        "benign": {...}
-      }
-      This is a stub view; customize once golden comparator lands.
-    -->
-    {% for cat, metrics in golden.items() %}
-    <h3>{{ cat }}</h3>
-    <div class="card">
-      <table>
-        <thead>
-          <tr><th>Metric</th><th>Golden</th><th>Current</th><th>Δ pp</th></tr>
-        </thead>
-        <tbody>
-          {% for name, vals in metrics.items() %}
-          {% set delta = vals.get("delta_pp") %}
-          {% set cls = 'good' if (name == 'injection_success_rate' and delta < 0) or (name != 'injection_success_rate' and delta > 0) else 'bad' %}
-          <tr>
-            <td class="nowrap mono">{{ name }}</td>
-            <td>{{ fmt.pct(vals.get("golden")) }}</td>
-            <td>{{ fmt.pct(vals.get("current")) }}</td>
-            <td><span class="badge {{ cls }}">{{ "%.1f" % (delta or 0.0) }}</span></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% endfor %}
-  </section>
-  {% endif %}
-
-  <footer class="section small muted">
-    Generated by Safety-Evals-in-a-Box
-  </footer>
+    <script>
+        function switchProfile(profile) {
+            // Hide all profile contents
+            document.querySelectorAll('.profile-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.profile-btn').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Show selected profile content
+            document.getElementById('heatmap-' + profile).classList.add('active');
+            document.getElementById('btn-' + profile).classList.add('active');
+        }
+    </script>
 </body>
 </html>
