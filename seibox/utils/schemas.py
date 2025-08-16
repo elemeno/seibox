@@ -10,7 +10,7 @@ SuiteId = Literal["pii", "injection", "benign"]
 
 class ProfileConfig(BaseModel):
     """Configuration for mitigation profiles."""
-    
+
     prompt_hardening: bool = False
     policy_gate: bool = False
 

@@ -13,32 +13,32 @@ from seibox.scoring.pii import get_pii_severity
 
 def wilson_interval(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
     """Compute Wilson confidence interval for a proportion.
-    
+
     Args:
         k: Number of successes
         n: Total number of trials
         z: Z-score for confidence level (1.96 for 95% CI)
-        
+
     Returns:
         Tuple of (lower_bound, upper_bound) for the confidence interval
     """
     if n == 0:
         return (0.0, 0.0)
-    
+
     p = k / n
     if n == 1:
         # For n=1, return simple bounds
         return (0.0, 1.0) if k == 1 else (0.0, 0.0)
-    
+
     # Wilson interval formula
     z_squared = z * z
     denominator = 1 + z_squared / n
     center = (p + z_squared / (2 * n)) / denominator
     width = z * math.sqrt((p * (1 - p) + z_squared / (4 * n)) / n) / denominator
-    
+
     lower = max(0.0, center - width)
     upper = min(1.0, center + width)
-    
+
     return (lower, upper)
 
 
@@ -292,55 +292,55 @@ def compute_severity_metrics(pii_records: List[OutputRecord]) -> Dict[str, Any]:
 
 def aggregate_cell(path: str) -> Dict[str, Any]:
     """Compute metrics for a single cell (model, category, profile).
-    
+
     Args:
         path: Path to JSONL file containing evaluation results
-        
+
     Returns:
         Dictionary with aggregated metrics including confidence intervals
     """
     # Load records from the JSONL file
     records_data = list(read_jsonl(path))
     records = [OutputRecord(**r) for r in records_data]
-    
+
     if not records:
         return {}
-    
+
     # Extract metadata from first record
     first_record = records[0]
     model = first_record.model
-    
+
     # Determine category from record IDs or trace
     category = "unknown"
     if any(r.id.startswith("pii") for r in records):
         category = "pii"
     elif any(r.id.startswith("injection") for r in records):
-        category = "injection"  
+        category = "injection"
     elif any(r.id.startswith("benign") for r in records):
         category = "benign"
     elif any(r.id.startswith("inj") for r in records):
         category = "injection"
     elif any(r.id.startswith("ben") for r in records):
         category = "benign"
-    
+
     # Extract profile information from trace
     profile_name = None
-    if hasattr(first_record.trace, 'profile_name'):
+    if hasattr(first_record.trace, "profile_name"):
         profile_name = first_record.trace.profile_name
     elif isinstance(first_record.trace, dict):
-        profile_name = first_record.trace.get('profile_name')
-    
+        profile_name = first_record.trace.get("profile_name")
+
     if profile_name is None:
         profile_name = "baseline"  # Default if no profile specified
-    
+
     # Compute base metrics
     base_metrics = aggregate_metrics(records)
-    
+
     # Separate records by type for confidence intervals
     pii_records = [r for r in records if r.id.startswith("pii")]
     injection_records = [r for r in records if r.id.startswith(("injection", "inj"))]
     benign_records = [r for r in records if r.id.startswith(("benign", "ben"))]
-    
+
     # Compute coverage (recall on should_block=True) for PII/injection
     coverage_k = coverage_n = 0
     if pii_records:
@@ -350,7 +350,7 @@ def aggregate_cell(path: str) -> Dict[str, Any]:
                 coverage_n += 1
                 if r.judgement.get("blocked", False):
                     coverage_k += 1
-    
+
     if injection_records:
         for r in injection_records:
             gold = _get_gold_from_trace(r.trace)
@@ -358,29 +358,29 @@ def aggregate_cell(path: str) -> Dict[str, Any]:
                 coverage_n += 1
                 if r.judgement.get("blocked", False):
                     coverage_k += 1
-    
+
     # Benign pass rate
     benign_k = sum(1 for r in benign_records if r.scores.get("allowed", False))
     benign_n = len(benign_records)
-    
+
     # Injection success rate (violations that got through)
     injection_k = sum(1 for r in injection_records if r.scores.get("violation", False))
     injection_n = len(injection_records)
-    
+
     # Compute confidence intervals
     coverage_ci = wilson_interval(coverage_k, coverage_n) if coverage_n > 0 else (0.0, 0.0)
     benign_ci = wilson_interval(benign_k, benign_n) if benign_n > 0 else (0.0, 0.0)
     injection_ci = wilson_interval(injection_k, injection_n) if injection_n > 0 else (0.0, 0.0)
-    
+
     # False positive rate CI (1 - benign_pass_rate)
     fp_k = benign_n - benign_k  # Records that were incorrectly blocked
     fp_ci = wilson_interval(fp_k, benign_n) if benign_n > 0 else (0.0, 0.0)
-    
+
     # Aggregate token and cost information
     total_tokens_in = sum(r.cost.get("input_tokens", 0) for r in records)
     total_tokens_out = sum(r.cost.get("output_tokens", 0) for r in records)
     total_cost_usd = sum(r.cost.get("usd", 0) for r in records)
-    
+
     # Latency percentiles
     latencies = [r.timing.get("latency_ms", 0) for r in records if "latency_ms" in r.timing]
     p50_ms = statistics.median(latencies) if latencies else 0.0
@@ -389,39 +389,34 @@ def aggregate_cell(path: str) -> Dict[str, Any]:
         sorted_latencies = sorted(latencies)
         p95_idx = int(len(sorted_latencies) * 0.95)
         p95_ms = sorted_latencies[min(p95_idx, len(sorted_latencies) - 1)]
-    
+
     # Create config hash from path (simple approach)
     config_hash = str(hash(str(Path(path).parent)))[-8:]
-    
+
     return {
         "model": model,
         "category": category,
         "profile": profile_name,
         "n_records": len(records),
-        
         # Coverage metrics with CI
         "coverage": coverage_k / coverage_n if coverage_n > 0 else 0.0,
         "coverage_n": coverage_n,
         "coverage_ci_low": coverage_ci[0],
         "coverage_ci_high": coverage_ci[1],
-        
         # Benign pass rate with CI
         "benign_pass_rate": benign_k / benign_n if benign_n > 0 else 0.0,
         "benign_n": benign_n,
         "benign_ci_low": benign_ci[0],
         "benign_ci_high": benign_ci[1],
-        
         # False positive rate with CI
         "false_positive_rate": fp_k / benign_n if benign_n > 0 else 0.0,
         "fp_ci_low": fp_ci[0],
         "fp_ci_high": fp_ci[1],
-        
         # Injection success rate with CI
         "injection_success_rate": injection_k / injection_n if injection_n > 0 else 0.0,
         "injection_n": injection_n,
         "injection_ci_low": injection_ci[0],
         "injection_ci_high": injection_ci[1],
-        
         # Resource metrics
         "cost_total_usd": total_cost_usd,
         "tokens_in": total_tokens_in,
@@ -429,43 +424,54 @@ def aggregate_cell(path: str) -> Dict[str, Any]:
         "p50_ms": p50_ms,
         "p95_ms": p95_ms,
         "config_hash": config_hash,
-        
         # Include original aggregate metrics for completeness
-        **base_metrics
+        **base_metrics,
     }
 
 
 def aggregate_matrix(cells_dir: str) -> pd.DataFrame:
     """Walk a directory of evaluation results and create an aggregated matrix.
-    
+
     Args:
         cells_dir: Directory containing evaluation result JSONL files
-        
+
     Returns:
-        DataFrame with columns: model, category, profile, metric, value, n, 
-                               ci_low, ci_high, cost_total_usd, tokens_in, 
+        DataFrame with columns: model, category, profile, metric, value, n,
+                               ci_low, ci_high, cost_total_usd, tokens_in,
                                tokens_out, p95_ms, config_hash
     """
     # Find all JSONL files recursively
     cells_path = Path(cells_dir)
     jsonl_files = list(cells_path.rglob("*.jsonl"))
-    
+
     if not jsonl_files:
         # Return empty DataFrame with correct schema
-        return pd.DataFrame(columns=[
-            "model", "category", "profile", "metric", "value", "n",
-            "ci_low", "ci_high", "cost_total_usd", "tokens_in", 
-            "tokens_out", "p95_ms", "config_hash"
-        ])
-    
+        return pd.DataFrame(
+            columns=[
+                "model",
+                "category",
+                "profile",
+                "metric",
+                "value",
+                "n",
+                "ci_low",
+                "ci_high",
+                "cost_total_usd",
+                "tokens_in",
+                "tokens_out",
+                "p95_ms",
+                "config_hash",
+            ]
+        )
+
     rows = []
-    
+
     for jsonl_file in jsonl_files:
         try:
             cell_metrics = aggregate_cell(str(jsonl_file))
             if not cell_metrics:
                 continue
-                
+
             # Extract base info
             model = cell_metrics["model"]
             category = cell_metrics["category"]
@@ -475,38 +481,60 @@ def aggregate_matrix(cells_dir: str) -> pd.DataFrame:
             tokens_out = cell_metrics["tokens_out"]
             p95_ms = cell_metrics["p95_ms"]
             config_hash = cell_metrics["config_hash"]
-            
+
             # Create rows for each metric with confidence intervals
             metrics_with_ci = [
-                ("coverage", cell_metrics["coverage"], cell_metrics["coverage_n"], 
-                 cell_metrics["coverage_ci_low"], cell_metrics["coverage_ci_high"]),
-                ("benign_pass_rate", cell_metrics["benign_pass_rate"], cell_metrics["benign_n"],
-                 cell_metrics["benign_ci_low"], cell_metrics["benign_ci_high"]),
-                ("false_positive_rate", cell_metrics["false_positive_rate"], cell_metrics["benign_n"],
-                 cell_metrics["fp_ci_low"], cell_metrics["fp_ci_high"]),
-                ("injection_success_rate", cell_metrics["injection_success_rate"], cell_metrics["injection_n"],
-                 cell_metrics["injection_ci_low"], cell_metrics["injection_ci_high"]),
+                (
+                    "coverage",
+                    cell_metrics["coverage"],
+                    cell_metrics["coverage_n"],
+                    cell_metrics["coverage_ci_low"],
+                    cell_metrics["coverage_ci_high"],
+                ),
+                (
+                    "benign_pass_rate",
+                    cell_metrics["benign_pass_rate"],
+                    cell_metrics["benign_n"],
+                    cell_metrics["benign_ci_low"],
+                    cell_metrics["benign_ci_high"],
+                ),
+                (
+                    "false_positive_rate",
+                    cell_metrics["false_positive_rate"],
+                    cell_metrics["benign_n"],
+                    cell_metrics["fp_ci_low"],
+                    cell_metrics["fp_ci_high"],
+                ),
+                (
+                    "injection_success_rate",
+                    cell_metrics["injection_success_rate"],
+                    cell_metrics["injection_n"],
+                    cell_metrics["injection_ci_low"],
+                    cell_metrics["injection_ci_high"],
+                ),
             ]
-            
+
             for metric_name, value, n, ci_low, ci_high in metrics_with_ci:
-                rows.append({
-                    "model": model,
-                    "category": category,
-                    "profile": profile,
-                    "metric": metric_name,
-                    "value": value,
-                    "n": n,
-                    "ci_low": ci_low,
-                    "ci_high": ci_high,
-                    "cost_total_usd": cost_total_usd,
-                    "tokens_in": tokens_in,
-                    "tokens_out": tokens_out,
-                    "p95_ms": p95_ms,
-                    "config_hash": config_hash,
-                })
-                
+                rows.append(
+                    {
+                        "model": model,
+                        "category": category,
+                        "profile": profile,
+                        "metric": metric_name,
+                        "value": value,
+                        "n": n,
+                        "ci_low": ci_low,
+                        "ci_high": ci_high,
+                        "cost_total_usd": cost_total_usd,
+                        "tokens_in": tokens_in,
+                        "tokens_out": tokens_out,
+                        "p95_ms": p95_ms,
+                        "config_hash": config_hash,
+                    }
+                )
+
         except Exception as e:
             print(f"Warning: Failed to process {jsonl_file}: {e}")
             continue
-    
+
     return pd.DataFrame(rows)
