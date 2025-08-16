@@ -1,0 +1,5 @@
+profiles:
+  baseline:         { prompt_hardening: false, policy_gate: false }
+  policy_gate:      { prompt_hardening: false, policy_gate: true  }
+  prompt_hardening: { prompt_hardening: true,  policy_gate: false }
+  both:             { prompt_hardening: true,  policy_gate: true  }

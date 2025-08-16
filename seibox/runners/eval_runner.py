@@ -262,7 +262,10 @@ def get_adapter(model_name: str) -> Any:
 
 
 def apply_mitigations_pre(
-    prompt: str, mitigation_id: Optional[str], config: Dict[str, Any]
+    prompt: str, 
+    mitigation_id: Optional[str], 
+    config: Dict[str, Any],
+    profile: Optional[schemas.ProfileConfig] = None
 ) -> tuple[str, Optional[str], Dict[str, Any]]:
     """Apply pre-processing mitigations.
 
@@ -270,6 +273,7 @@ def apply_mitigations_pre(
         prompt: Original prompt
         mitigation_id: Mitigation identifier (e.g., "policy_gate@0.1.0:pre", "prompt_hardening@0.1.0")
         config: Configuration dictionary
+        profile: Optional profile configuration
 
     Returns:
         Tuple of (modified_prompt, system_prompt, trace_info)
@@ -277,34 +281,51 @@ def apply_mitigations_pre(
     system_prompt = None
     trace_info = {"mitigations": []}
 
-    if not mitigation_id:
-        return prompt, system_prompt, trace_info
-
-    # Parse mitigation ID (format: "name@version" or "name@version:options")
-    mitigation_parts = mitigation_id.split(":")
-    mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
-    mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
-
-    # Apply policy gate pre-processing
-    if "policy_gate" in mitigation_base:
-        # Always apply pre-gate unless explicitly disabled
-        if mitigation_options != "post":  # Apply pre unless it's post-only
+    # If profile is provided, use it to determine mitigations
+    if profile:
+        # Apply policy gate pre-processing if enabled in profile
+        if profile.policy_gate:
             prompt, gate_trace = policy_gate.apply_pre(prompt)
             trace_info.update(gate_trace)
-            trace_info["mitigations"].append(f"{mitigation_base}:pre")
+            trace_info["mitigations"].append("policy_gate@0.1.0:pre")
+        
+        # Apply prompt hardening if enabled in profile
+        if profile.prompt_hardening:
+            system_prompt = prompt_hardening.get_system_prompt("default_v0")
+            trace_info["mitigations"].append("prompt_hardening@0.1.0")
+            if system_prompt:
+                trace_info["system_prompt_hash"] = xxhash.xxh64_hexdigest(system_prompt)
+    
+    # Legacy: if mitigation_id provided without profile, use old logic
+    elif mitigation_id:
+        # Parse mitigation ID (format: "name@version" or "name@version:options")
+        mitigation_parts = mitigation_id.split(":")
+        mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
+        mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
 
-    # Apply prompt hardening (always includes system prompt)
-    if "prompt_hardening" in mitigation_base:
-        system_prompt = prompt_hardening.get_system_prompt("default_v0")
-        trace_info["mitigations"].append(mitigation_base)
-        if system_prompt:
-            trace_info["system_prompt_hash"] = xxhash.xxh64_hexdigest(system_prompt)
+        # Apply policy gate pre-processing
+        if "policy_gate" in mitigation_base:
+            # Always apply pre-gate unless explicitly disabled
+            if mitigation_options != "post":  # Apply pre unless it's post-only
+                prompt, gate_trace = policy_gate.apply_pre(prompt)
+                trace_info.update(gate_trace)
+                trace_info["mitigations"].append(f"{mitigation_base}:pre")
+
+        # Apply prompt hardening (always includes system prompt)
+        if "prompt_hardening" in mitigation_base:
+            system_prompt = prompt_hardening.get_system_prompt("default_v0")
+            trace_info["mitigations"].append(mitigation_base)
+            if system_prompt:
+                trace_info["system_prompt_hash"] = xxhash.xxh64_hexdigest(system_prompt)
 
     return prompt, system_prompt, trace_info
 
 
 def apply_mitigations_post(
-    text: str, mitigation_id: Optional[str], prompt: str
+    text: str, 
+    mitigation_id: Optional[str], 
+    prompt: str,
+    profile: Optional[schemas.ProfileConfig] = None
 ) -> tuple[str, Dict[str, Any]]:
     """Apply post-processing mitigations.
 
@@ -312,26 +333,36 @@ def apply_mitigations_post(
         text: Generated text
         mitigation_id: Mitigation identifier (e.g., "policy_gate@0.1.0", "policy_gate@0.1.0:pre")
         prompt: Original prompt (for context)
+        profile: Optional profile configuration
 
     Returns:
         Tuple of (modified_text, trace_info)
     """
     trace_info = {}
 
-    if not mitigation_id:
-        return text, trace_info
-
-    # Parse mitigation ID (format: "name@version" or "name@version:options")
-    mitigation_parts = mitigation_id.split(":")
-    mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
-    mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
-
-    # Apply policy gate post-processing
-    if "policy_gate" in mitigation_base:
-        # Apply post-gate unless it's pre-only
-        if mitigation_options != "pre":  # Apply post unless it's pre-only
+    # If profile is provided, use it to determine mitigations
+    if profile:
+        # Apply policy gate post-processing if enabled in profile
+        if profile.policy_gate:
             text, gate_trace = policy_gate.apply_post(text, original_prompt=prompt)
             trace_info.update(gate_trace)
+            if "mitigations" not in trace_info:
+                trace_info["mitigations"] = []
+            trace_info["mitigations"].append("policy_gate@0.1.0:post")
+    
+    # Legacy: if mitigation_id provided without profile, use old logic
+    elif mitigation_id:
+        # Parse mitigation ID (format: "name@version" or "name@version:options")
+        mitigation_parts = mitigation_id.split(":")
+        mitigation_base = mitigation_parts[0]  # e.g., "policy_gate@0.1.0"
+        mitigation_options = mitigation_parts[1] if len(mitigation_parts) > 1 else None  # e.g., "pre"
+
+        # Apply policy gate post-processing
+        if "policy_gate" in mitigation_base:
+            # Apply post-gate unless it's pre-only
+            if mitigation_options != "pre":  # Apply post unless it's pre-only
+                text, gate_trace = policy_gate.apply_post(text, original_prompt=prompt)
+                trace_info.update(gate_trace)
 
     return text, trace_info
 
@@ -342,6 +373,8 @@ def process_record(
     config: Dict[str, Any],
     mitigation_id: Optional[str],
     cost_table: Dict[str, Dict[str, float]],
+    profile: Optional[schemas.ProfileConfig] = None,
+    profile_name: Optional[str] = None,
 ) -> schemas.OutputRecord:
     """Process a single evaluation record.
 
@@ -351,12 +384,14 @@ def process_record(
         config: Configuration dictionary
         mitigation_id: Optional mitigation identifier
         cost_table: Cost lookup table
+        profile: Optional profile configuration
+        profile_name: Optional profile name for tracing
 
     Returns:
         Output record with results
     """
     # Apply pre-mitigations
-    prompt, system_prompt, pre_trace = apply_mitigations_pre(record.prompt, mitigation_id, config)
+    prompt, system_prompt, pre_trace = apply_mitigations_pre(record.prompt, mitigation_id, config, profile)
 
     # Check cache if enabled
     use_cache = config.get("run", {}).get("cache", True)
@@ -386,7 +421,7 @@ def process_record(
             cache.set_cached(cache_key, response)
 
     # Apply post-mitigations
-    text, post_trace = apply_mitigations_post(response["text"], mitigation_id, record.prompt)
+    text, post_trace = apply_mitigations_post(response["text"], mitigation_id, record.prompt, profile)
 
     # Create trace with conversation details
     from datetime import datetime
@@ -469,6 +504,9 @@ def process_record(
         redacted=text != response["text"],
         assistant_raw=response["text"] if text != response["text"] else None,
         assistant_redacted=text if text != response["text"] else None,
+        profile_name=profile_name,
+        prompt_hardening=profile.prompt_hardening if profile else None,
+        policy_gate=profile.policy_gate if profile else None,
     )
 
     # Score the output based on suite type
@@ -665,6 +703,8 @@ def run_eval(
     out_path: str,
     mitigation_id: Optional[str] = None,
     replay_path: Optional[str] = None,
+    profile_name: Optional[str] = None,
+    profile: Optional[schemas.ProfileConfig] = None,
 ) -> None:
     """Run evaluation on a suite with specified model and configuration.
 
@@ -680,11 +720,36 @@ def run_eval(
     if replay_path:
         return replay_eval(replay_path, out_path, config_path)
 
+    # Load profile if specified
+    if profile_name and not profile:
+        # Load profiles configuration
+        profiles_path = Path("configs/profiles.yaml")
+        if not profiles_path.exists():
+            raise FileNotFoundError(f"Profiles configuration not found: {profiles_path}")
+        
+        with open(profiles_path, "r") as f:
+            profiles_config = yaml.safe_load(f)
+        
+        if profile_name not in profiles_config.get("profiles", {}):
+            available = list(profiles_config.get("profiles", {}).keys())
+            raise ValueError(f"Profile '{profile_name}' not found. Available profiles: {available}")
+        
+        profile_data = profiles_config["profiles"][profile_name]
+        profile = schemas.ProfileConfig(**profile_data)
+    
     console.print(f"[bold blue]Running evaluation[/bold blue]")
     console.print(f"Suite: {suite_name}")
     console.print(f"Model: {model_name}")
     console.print(f"Config: {config_path}")
-    console.print(f"Mitigation: {mitigation_id or 'None'}")
+    if profile_name:
+        console.print(f"Profile: {profile_name}")
+        if profile:
+            console.print(f"  Prompt Hardening: {profile.prompt_hardening}")
+            console.print(f"  Policy Gate: {profile.policy_gate}")
+    elif mitigation_id:
+        console.print(f"Mitigation: {mitigation_id}")
+    else:
+        console.print(f"Mitigation: None")
     console.print()
 
     # Load configuration
@@ -713,7 +778,7 @@ def run_eval(
     max_workers = min(10, rate_limit) if rate_limit else 10
 
     def process_fn(record: schemas.InputRecord) -> schemas.OutputRecord:
-        return process_record(record, adapter, config, mitigation_id, cost_table)
+        return process_record(record, adapter, config, mitigation_id, cost_table, profile, profile_name)
 
     results = batch_execute(
         process_fn,

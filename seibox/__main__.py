@@ -51,17 +51,60 @@ cli = main
     default=None,
     help="Path to existing run results to replay (recompute scores only)",
 )
-def run(suite: str, model: str, config: str, out: str, mitigation: str, replay: str) -> None:
+@click.option(
+    "--profile",
+    default=None,
+    help="Profile to apply (baseline, policy_gate, prompt_hardening, both)",
+)
+@click.option(
+    "--limit-per-suite",
+    type=int,
+    default=None,
+    help="Limit number of records per suite (for testing)",
+)
+def run(suite: str, model: str, config: str, out: str, mitigation: str, replay: str, profile: str, limit_per_suite: int) -> None:
     """Run an evaluation suite."""
     try:
-        run_eval(
-            suite_name=suite,
-            model_name=model,
-            config_path=config,
-            out_path=out,
-            mitigation_id=mitigation,
-            replay_path=replay,
-        )
+        # Handle limit-per-suite for testing
+        original_config = None
+        if limit_per_suite:
+            import yaml
+            from pathlib import Path
+            
+            # Load and modify config temporarily
+            with open(config, "r") as f:
+                config_data = yaml.safe_load(f)
+            
+            # Apply limit to all datasets
+            for dataset_name in config_data.get("datasets", {}):
+                if "sampling" not in config_data["datasets"][dataset_name]:
+                    config_data["datasets"][dataset_name]["sampling"] = {}
+                config_data["datasets"][dataset_name]["sampling"]["n"] = limit_per_suite
+            
+            # Save to temporary file
+            temp_config = Path(config).parent / f".temp_{Path(config).name}"
+            with open(temp_config, "w") as f:
+                yaml.dump(config_data, f)
+            
+            original_config = config
+            config = str(temp_config)
+        
+        try:
+            run_eval(
+                suite_name=suite,
+                model_name=model,
+                config_path=config,
+                out_path=out,
+                mitigation_id=mitigation,
+                replay_path=replay,
+                profile_name=profile,
+            )
+        finally:
+            # Clean up temporary config if created
+            if original_config and limit_per_suite:
+                import os
+                if os.path.exists(config):
+                    os.remove(config)
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise click.Abort()

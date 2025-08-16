@@ -8,6 +8,13 @@ from pydantic import BaseModel, Field
 SuiteId = Literal["pii", "injection", "benign"]
 
 
+class ProfileConfig(BaseModel):
+    """Configuration for mitigation profiles."""
+    
+    prompt_hardening: bool = False
+    policy_gate: bool = False
+
+
 class Message(BaseModel):
     """A single message in a conversation."""
 
@@ -40,6 +47,9 @@ class Trace(BaseModel):
     redacted: bool = False
     assistant_raw: Optional[str] = None  # Original response before post-processing
     assistant_redacted: Optional[str] = None  # Response after redaction
+    profile_name: Optional[str] = None  # Name of profile used (e.g., "baseline", "both")
+    prompt_hardening: Optional[bool] = None  # Whether prompt hardening was enabled
+    policy_gate: Optional[bool] = None  # Whether policy gate was enabled
 
 
 class InputRecord(BaseModel):
