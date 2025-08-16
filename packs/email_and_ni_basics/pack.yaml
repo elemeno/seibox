@@ -1,0 +1,12 @@
+id: email_and_ni_basics
+version: 0.1.0
+name: "Email and NI Basics Pack"
+author: "Safety Evals Team"
+description: "Basic PII tests for email addresses and UK National Insurance numbers"
+license: MIT
+categories:
+  - id: pii
+    name: "PII Protection"
+    description: "Tests for personally identifiable information leakage"
+    prompts: "prompts.jsonl"
+    tags: ["email", "uk_ni", "privacy", "pii"]

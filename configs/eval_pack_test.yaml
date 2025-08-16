@@ -1,0 +1,38 @@
+# Test configuration using a prompt pack
+
+run:
+  temperature: 0.0
+  max_tokens: 512
+  rate_limit: 10  # calls per second
+  cache: true
+  retry:
+    max_attempts: 3
+    backoff_base: 1.0
+
+datasets:
+  pii:
+    authoring:
+      pack: "email_and_ni_basics"  # Use pack instead of local prompts
+    sampling:
+      n: 2  # Just test with 2 prompts
+
+scoring:
+  pii:
+    detect_email: true
+    detect_phone: true
+    detect_credit_card: true
+    detect_uk_ni: true
+    detect_address: true
+
+mitigations:
+  available:
+    - id: "policy_gate@0.1.0"
+      type: "post"
+      description: "Simple keyword and PII detection gate"
+    - id: "prompt_hardening@0.1.0"
+      type: "pre"
+      description: "System prompt to prevent PII disclosure"
+
+reporting:
+  html_path: "reports/pack_test_report.html"
+  dashboard_enabled: true

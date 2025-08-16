@@ -164,18 +164,30 @@ def validate_eval_config(config: Dict[str, Any]) -> None:
                     "n": int,
                 },
                 "source": str,
+                "authoring": {
+                    "pack": str,
+                    "path": str,
+                },
             },
             "injection": {
                 "sampling": {
                     "n": int,
                 },
                 "source": str,
+                "authoring": {
+                    "pack": str,
+                    "path": str,
+                },
             },
             "benign": {
                 "sampling": {
                     "n": int,
                 },
                 "source": str,
+                "authoring": {
+                    "pack": str,
+                    "path": str,
+                },
             }
         },
         "scoring": {

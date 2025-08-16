@@ -78,8 +78,33 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
     dataset_config = config["datasets"].get(suite_name, {})
     sample_size = dataset_config.get("sampling", {}).get("n", 3)
     
-    # Check if authoring path is specified in config
+    # Check if authoring configuration is specified
     authoring = dataset_config.get("authoring", {})
+    
+    # Check for pack reference first
+    if authoring and "pack" in authoring:
+        from seibox.packs import load_pack
+        
+        pack_id = authoring["pack"]
+        console.print(f"[blue]Loading prompts from pack: {pack_id}[/blue]")
+        
+        try:
+            # Load prompts from the pack
+            specs = load_pack(f"packs/{pack_id}", category=suite_name)
+            
+            # Convert specs to input records
+            records = []
+            for spec in specs[:sample_size]:
+                record = to_input_record(spec, suite_override=suite_name)
+                records.append(record)
+            
+            if records:
+                return records
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to load pack {pack_id}: {e}[/yellow]")
+            # Fall through to other loading methods
+    
+    # Check if authoring path is specified in config
     if authoring and "path" in authoring:
         prompts_file = Path(authoring["path"])
         if not prompts_file.is_absolute():

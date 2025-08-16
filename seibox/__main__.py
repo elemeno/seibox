@@ -561,6 +561,147 @@ def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool) -> N
         raise click.Abort()
 
 
+@cli.group()
+def packs() -> None:
+    """Manage portable prompt packs."""
+    pass
+
+
+@packs.command("list")
+def packs_list() -> None:
+    """List available prompt packs."""
+    from rich.table import Table
+    from seibox.packs import discover_packs
+    
+    packs = discover_packs()
+    
+    if not packs:
+        console.print("[yellow]No packs found in packs/ directory[/yellow]")
+        return
+    
+    table = Table(title="Available Prompt Packs")
+    table.add_column("ID", style="cyan")
+    table.add_column("Version", style="green")
+    table.add_column("Name", style="white")
+    table.add_column("Categories", style="magenta")
+    table.add_column("Prompts", justify="right")
+    table.add_column("License", style="dim")
+    
+    for pack in packs:
+        categories = ", ".join(cat.id for cat in pack.categories)
+        table.add_row(
+            pack.id,
+            pack.version,
+            pack.name or "-",
+            categories,
+            str(pack.prompt_count),
+            pack.license or "-"
+        )
+    
+    console.print(table)
+    console.print(f"\n[dim]Total packs: {len(packs)}[/dim]")
+
+
+@packs.command("import")
+@click.option("--id", "pack_id", required=True, help="Pack ID to import")
+@click.option("--category", required=True, help="Category to import")
+@click.option("--dest", required=True, help="Destination directory")
+@click.option("--no-dedupe", is_flag=True, help="Don't deduplicate prompts by ID")
+@click.option("--preview", is_flag=True, help="Preview import without writing files")
+def packs_import(pack_id: str, category: str, dest: str, no_dedupe: bool, preview: bool) -> None:
+    """Import prompts from a pack into a dataset."""
+    from seibox.packs import import_pack
+    
+    try:
+        # Import the pack
+        summary = import_pack(
+            pack_id=pack_id,
+            category=category,
+            dest=dest,
+            dedupe=not no_dedupe,
+            preview=preview
+        )
+        
+        # Display summary
+        if preview:
+            console.print("\n[bold yellow]PREVIEW MODE - No files written[/bold yellow]")
+        
+        console.print(f"\n[bold]Import Summary:[/bold]")
+        console.print(f"  Pack: {summary['pack_id']} v{summary['pack_version']}")
+        console.print(f"  Category: {summary['category']}")
+        console.print(f"  Destination: {summary['destination']}")
+        console.print(f"  Existing prompts: {summary['existing_count']}")
+        console.print(f"  New prompts: [green]{summary['imported_count']}[/green]")
+        
+        if summary['duplicate_count'] > 0:
+            console.print(f"  Duplicates skipped: [yellow]{summary['duplicate_count']}[/yellow]")
+            if summary['duplicates']:
+                console.print(f"    First few: {', '.join(summary['duplicates'][:5])}")
+        
+        console.print(f"  Total prompts: [bold]{summary['total_count']}[/bold]")
+        
+        if 'backup_created' in summary:
+            console.print(f"  Backup created: {summary['backup_created']}")
+        
+        if not preview:
+            console.print(f"\n[green]✓[/green] Successfully imported {summary['imported_count']} prompts")
+    
+    except Exception as e:
+        console.print(f"[bold red]Error importing pack:[/bold red] {e}")
+        raise click.Abort()
+
+
+@packs.command("validate")
+@click.option("--id", "pack_id", help="Pack ID to validate")
+@click.option("--path", help="Path to pack directory")
+def packs_validate(pack_id: str, path: str) -> None:
+    """Validate a pack's structure and contents."""
+    from pathlib import Path
+    from seibox.packs import discover_packs
+    from seibox.packs.loader import validate_pack
+    
+    # Find pack path
+    if path:
+        pack_path = path
+    elif pack_id:
+        packs = discover_packs()
+        pack = next((p for p in packs if p.id == pack_id), None)
+        if not pack:
+            console.print(f"[bold red]Pack not found:[/bold red] {pack_id}")
+            raise click.Abort()
+        pack_path = str(pack.path)
+    else:
+        console.print("[bold red]Either --id or --path must be specified[/bold red]")
+        raise click.Abort()
+    
+    # Validate pack
+    results = validate_pack(pack_path)
+    
+    # Display results
+    if results['valid']:
+        console.print(f"[green]✓[/green] Pack is valid: {pack_path}")
+    else:
+        console.print(f"[red]✗[/red] Pack validation failed: {pack_path}")
+    
+    if results['errors']:
+        console.print("\n[bold red]Errors:[/bold red]")
+        for error in results['errors']:
+            console.print(f"  • {error}")
+    
+    if results['warnings']:
+        console.print("\n[bold yellow]Warnings:[/bold yellow]")
+        for warning in results['warnings']:
+            console.print(f"  • {warning}")
+    
+    if results['stats']:
+        console.print("\n[bold]Statistics:[/bold]")
+        for key, value in results['stats'].items():
+            console.print(f"  {key}: {value}")
+    
+    if not results['valid']:
+        raise click.Abort()
+
+
 @cli.command()
 @click.option("--sample", default="SMOKE", help="Sample mode: SMOKE, FULL, or N=<number>")
 @click.option("--out", default="runs/landscape", help="Output directory for results")

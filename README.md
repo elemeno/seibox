@@ -204,6 +204,43 @@ poetry run python scripts/regression_gate.py \
 - `seibox/utils/`: Shared utilities (caching, I/O, schemas)
 - `seibox/ui/`: Dashboard and reporting interfaces
 
+## Using Prompt Packs
+
+Prompt packs are portable bundles of evaluation prompts that can be shared and imported across teams.
+
+### List available packs
+```bash
+poetry run seibox packs list
+```
+
+### Import prompts from a pack
+```bash
+# Import into a dataset directory
+poetry run seibox packs import --id email_and_ni_basics --category pii --dest seibox/datasets/pii/
+
+# Preview without importing
+poetry run seibox packs import --id email_and_ni_basics --category pii --dest seibox/datasets/pii/ --preview
+```
+
+### Use pack in evaluation config
+```yaml
+# In configs/eval_*.yaml
+datasets:
+  pii:
+    authoring:
+      pack: "email_and_ni_basics"  # Use pack instead of local prompts
+    sampling:
+      n: 10
+```
+
+### Create your own pack
+1. Create directory: `packs/your_pack_id/`
+2. Add `pack.yaml` with metadata
+3. Add `prompts.jsonl` with evaluation prompts
+4. Validate: `poetry run seibox packs validate --id your_pack_id`
+
+See `packs/README.md` for detailed documentation.
+
 ## License
 
 MIT
