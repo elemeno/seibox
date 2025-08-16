@@ -45,7 +45,7 @@ def check_api_keys() -> Dict[str, bool]:
     gemini_key = os.getenv("GEMINI_API_KEY")
     google_project = os.getenv("GOOGLE_CLOUD_PROJECT")
     use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1", "yes")
-
+    
     # Gemini is available if either API key exists OR Vertex AI is configured
     keys_status["Gemini"] = bool(gemini_key or (use_vertexai and google_project))
 

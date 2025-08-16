@@ -187,7 +187,7 @@ def main():
         st.subheader("Input")
 
         # Extract prompt from trace if available
-        if hasattr(current_record.trace, "messages") and current_record.trace.messages:
+        if hasattr(current_record.trace, 'messages') and current_record.trace.messages:
             user_messages = [msg for msg in current_record.trace.messages if msg.role == "user"]
             prompt = user_messages[0].content if user_messages else "[Prompt not available]"
         elif isinstance(current_record.trace, dict):

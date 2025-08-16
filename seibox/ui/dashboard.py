@@ -165,79 +165,77 @@ def display_metric_cards_with_ci(df: pd.DataFrame, file_name: str):
         st.metric(
             "Cost per 1k", f"${metrics.get('cost_per_1k', 0):.4f}", help="Cost per 1000 API calls"
         )
-
+    
     # Entity and severity metrics (new section)
     display_entity_severity_charts(metrics, file_name)
 
 
 def display_entity_severity_charts(metrics: Dict, file_name: str):
     """Display entity-specific and severity-based PII analysis charts.
-
+    
     Args:
         metrics: Aggregated metrics dictionary
         file_name: Name of the file for display context
     """
     entity_metrics = metrics.get("entity_metrics", {})
     severity_metrics = metrics.get("severity_metrics", {})
-
+    
     if not entity_metrics and not severity_metrics:
         return
-
+        
     st.divider()
     st.subheader("🎯 PII Entity & Severity Analysis")
-
+    
     # Create two columns for entity and severity charts
     col1, col2 = st.columns(2)
-
+    
     with col1:
         st.write("**Per-Entity Leak Rates**")
         if entity_metrics:
             # Prepare data for entity chart
             entity_data = []
             for entity_type, data in entity_metrics.items():
-                entity_data.append(
-                    {
-                        "Entity": entity_type.replace("_", " ").title(),
-                        "Leak Rate": data["leak_rate"],
-                        "Severity": data["severity"].title(),
-                        "Detected": data["detected_count"],
-                        "Total": data["total_count"],
-                        "Display": f"{data['leak_rate']:.1%} ({data['detected_count']}/{data['total_count']})",
-                    }
-                )
-
+                entity_data.append({
+                    "Entity": entity_type.replace("_", " ").title(),
+                    "Leak Rate": data["leak_rate"], 
+                    "Severity": data["severity"].title(),
+                    "Detected": data["detected_count"],
+                    "Total": data["total_count"],
+                    "Display": f"{data['leak_rate']:.1%} ({data['detected_count']}/{data['total_count']})"
+                })
+            
             if entity_data:
                 entity_df = pd.DataFrame(entity_data)
-
+                
                 # Color mapping for severity
                 severity_colors = {"High": "#e74c3c", "Medium": "#f39c12", "Low": "#27ae60"}
-
+                
                 # Create bar chart
                 fig = px.bar(
                     entity_df,
                     x="Entity",
-                    y="Leak Rate",
+                    y="Leak Rate", 
                     color="Severity",
                     color_discrete_map=severity_colors,
                     hover_data=["Detected", "Total"],
-                    title="Leak Rate by PII Entity Type",
+                    title="Leak Rate by PII Entity Type"
                 )
-
+                
                 fig.update_layout(
-                    height=400, yaxis=dict(tickformat=".0%", range=[0, 1]), xaxis_tickangle=-45
+                    height=400,
+                    yaxis=dict(tickformat=".0%", range=[0, 1]),
+                    xaxis_tickangle=-45
                 )
-
+                
                 st.plotly_chart(fig, use_container_width=True)
-
+                
                 # Entity table with details
                 st.write("**Entity Details**")
-                display_df = entity_df[["Entity", "Severity", "Display"]].rename(
-                    columns={"Display": "Rate (Detected/Total)"}
-                )
+                display_df = entity_df[["Entity", "Severity", "Display"]].rename(columns={"Display": "Rate (Detected/Total)"})
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
         else:
             st.info("No entity-specific metrics available")
-
+    
     with col2:
         st.write("**Severity-Level Analysis**")
         if severity_metrics:
@@ -245,20 +243,18 @@ def display_entity_severity_charts(metrics: Dict, file_name: str):
             severity_data = []
             for severity, data in severity_metrics.items():
                 if data.get("total_records", 0) > 0:
-                    severity_data.append(
-                        {
-                            "Severity": severity.title(),
-                            "Leak Rate": data["leak_rate"],
-                            "Records with Leaks": data["detected_records"],
-                            "Total Records": data["total_records"],
-                            "Entity Types": len(data.get("entity_types", [])),
-                            "Display": f"{data['leak_rate']:.1%} ({data['detected_records']}/{data['total_records']})",
-                        }
-                    )
-
+                    severity_data.append({
+                        "Severity": severity.title(),
+                        "Leak Rate": data["leak_rate"],
+                        "Records with Leaks": data["detected_records"],
+                        "Total Records": data["total_records"],
+                        "Entity Types": len(data.get("entity_types", [])),
+                        "Display": f"{data['leak_rate']:.1%} ({data['detected_records']}/{data['total_records']})"
+                    })
+            
             if severity_data:
                 severity_df = pd.DataFrame(severity_data)
-
+                
                 # Create horizontal bar chart for severity
                 fig = px.bar(
                     severity_df,
@@ -268,22 +264,25 @@ def display_entity_severity_charts(metrics: Dict, file_name: str):
                     color="Severity",
                     color_discrete_map={"High": "#e74c3c", "Medium": "#f39c12", "Low": "#27ae60"},
                     hover_data=["Records with Leaks", "Total Records", "Entity Types"],
-                    title="Leak Rate by Severity Level",
+                    title="Leak Rate by Severity Level"
                 )
-
+                
                 fig.update_layout(
-                    height=400, xaxis=dict(tickformat=".0%", range=[0, 1]), showlegend=False
+                    height=400,
+                    xaxis=dict(tickformat=".0%", range=[0, 1]),
+                    showlegend=False
                 )
-
+                
                 st.plotly_chart(fig, use_container_width=True)
-
+                
                 # Severity summary table
                 st.write("**Severity Summary**")
-                display_df = severity_df[["Severity", "Display", "Entity Types"]].rename(
-                    columns={"Display": "Rate (With Leaks/Total)", "Entity Types": "# Entity Types"}
-                )
+                display_df = severity_df[["Severity", "Display", "Entity Types"]].rename(columns={
+                    "Display": "Rate (With Leaks/Total)",
+                    "Entity Types": "# Entity Types"
+                })
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
-
+                
                 # Show which entity types are in each severity
                 with st.expander("📋 Entity Types by Severity"):
                     for severity, data in severity_metrics.items():
@@ -526,13 +525,7 @@ def main():
     # Main content area
     if "dataframes" in ss and ss.dataframes:
         tabs = st.tabs(
-            [
-                "📈 Overview",
-                "📊 Stratified Analysis",
-                "🔄 Flips Explorer",
-                "💬 Transcripts",
-                "📋 Raw Data",
-            ]
+            ["📈 Overview", "📊 Stratified Analysis", "🔄 Flips Explorer", "💬 Transcripts", "📋 Raw Data"]
         )
 
         with tabs[0]:  # Overview
@@ -707,51 +700,43 @@ def main():
 
         with tabs[3]:  # Transcripts
             st.header("💬 Conversation Transcripts")
-
+            
             for file_path, df in ss.dataframes.items():
                 st.subheader(f"🗂️ {Path(file_path).name}")
-
+                
                 # Filter records with trace data
-                if "trace" in df.columns:
+                if 'trace' in df.columns:
                     # Create a selectbox to choose a record
-                    record_options = [
-                        f"{row['id']} - {row['text'][:50]}..." for _, row in df.iterrows()
-                    ]
+                    record_options = [f"{row['id']} - {row['text'][:50]}..." for _, row in df.iterrows()]
                     if record_options:
                         selected_idx = st.selectbox(
                             "Select a conversation to view:",
                             range(len(record_options)),
                             format_func=lambda i: record_options[i],
-                            key=f"transcript_select_{file_path}",
+                            key=f"transcript_select_{file_path}"
                         )
-
+                        
                         # Get the selected record
                         selected_record = df.iloc[selected_idx]
-                        trace = selected_record["trace"]
-
+                        trace = selected_record['trace']
+                        
                         # Display conversation
                         st.subheader("📝 Conversation")
-
-                        if isinstance(trace, dict) and "messages" in trace:
-                            messages = trace["messages"]
-                        elif hasattr(trace, "messages"):
+                        
+                        if isinstance(trace, dict) and 'messages' in trace:
+                            messages = trace['messages']
+                        elif hasattr(trace, 'messages'):
                             messages = trace.messages
                         else:
                             st.warning("No conversation messages found in trace")
                             messages = []
-
+                        
                         if messages:
                             for i, msg in enumerate(messages):
-                                role = msg.get("role") if isinstance(msg, dict) else msg.role
-                                content = (
-                                    msg.get("content") if isinstance(msg, dict) else msg.content
-                                )
-                                redacted = (
-                                    msg.get("redacted", False)
-                                    if isinstance(msg, dict)
-                                    else msg.redacted
-                                )
-
+                                role = msg.get('role') if isinstance(msg, dict) else msg.role
+                                content = msg.get('content') if isinstance(msg, dict) else msg.content
+                                redacted = msg.get('redacted', False) if isinstance(msg, dict) else msg.redacted
+                                
                                 # Role-based styling
                                 if role == "system":
                                     st.write("🤖 **System:**")
@@ -767,35 +752,28 @@ def main():
                                     if redacted:
                                         st.warning("⚠️ Response was modified by post-processing")
                                     st.markdown(content)
-
+                                
                                 if i < len(messages) - 1:
                                     st.divider()
                         else:
                             st.info("No conversation messages available")
-
+                        
                         # Display trace metadata
                         st.subheader("🔍 Trace Metadata")
                         col1, col2 = st.columns(2)
-
+                        
                         with col1:
                             if isinstance(trace, dict):
                                 st.metric("Conversation ID", trace.get("conversation_id", "N/A"))
-                                st.metric(
-                                    "System Prompt Hash", trace.get("system_prompt_hash", "N/A")
-                                )
+                                st.metric("System Prompt Hash", trace.get("system_prompt_hash", "N/A"))
                                 mitigations = trace.get("mitigations", [])
                             else:
-                                st.metric(
-                                    "Conversation ID", getattr(trace, "conversation_id", "N/A")
-                                )
-                                st.metric(
-                                    "System Prompt Hash",
-                                    getattr(trace, "system_prompt_hash", "N/A"),
-                                )
-                                mitigations = getattr(trace, "mitigations", [])
-
+                                st.metric("Conversation ID", getattr(trace, 'conversation_id', "N/A"))
+                                st.metric("System Prompt Hash", getattr(trace, 'system_prompt_hash', "N/A"))
+                                mitigations = getattr(trace, 'mitigations', [])
+                        
                         with col2:
-                            st.metric("Model", selected_record["model"])
+                            st.metric("Model", selected_record['model'])
                             if mitigations:
                                 st.write("**Mitigations Applied:**")
                                 for mitigation in mitigations:

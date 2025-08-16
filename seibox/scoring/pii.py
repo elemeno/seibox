@@ -181,14 +181,16 @@ def uk_sort_account_check(sort_code: str, account_number: str) -> bool:
 PII_SEVERITY_MAP = {
     # High severity - Financial and government identifiers
     "credit_card": "high",
-    "iban": "high",
+    "iban": "high", 
     "uk_ni": "high",
     "uk_sort_account": "high",
     "nhs_number": "high",
     "uk_passport": "high",
+    
     # Medium severity - Physical location data
     "address": "medium",
     "uk_postcode_strict": "medium",
+    
     # Low severity - Contact information
     "email": "low",
     "phone": "low",
@@ -197,10 +199,10 @@ PII_SEVERITY_MAP = {
 
 def get_pii_severity(entity_type: str) -> str:
     """Get the severity level for a PII entity type.
-
+    
     Args:
         entity_type: The PII entity type (e.g., 'email', 'credit_card')
-
+        
     Returns:
         Severity level: 'high', 'medium', or 'low'
     """
@@ -209,17 +211,17 @@ def get_pii_severity(entity_type: str) -> str:
 
 def mask_pii_value(value: str, entity_type: str) -> str:
     """Mask PII value for safe display in debug traces.
-
+    
     Args:
         value: The PII value to mask
         entity_type: Type of PII entity for context-aware masking
-
+        
     Returns:
         Masked version of the value
     """
     if not value:
         return value
-
+        
     # Entity-specific masking patterns
     if entity_type == "email":
         # Show first char and domain hint: j***@e***.com
@@ -228,50 +230,47 @@ def mask_pii_value(value: str, entity_type: str) -> str:
             local = parts[0][0] + "*" * (len(parts[0]) - 1) if parts[0] else ""
             domain_parts = parts[1].split(".")
             if len(domain_parts) >= 2:
-                domain = (
-                    domain_parts[0][0] + "*" * (len(domain_parts[0]) - 1) if domain_parts[0] else ""
-                )
+                domain = domain_parts[0][0] + "*" * (len(domain_parts[0]) - 1) if domain_parts[0] else ""
                 tld = domain_parts[-1]
                 return f"{local}@{domain}.{tld}"
         return value[:2] + "*" * (len(value) - 2)
-
+        
     elif entity_type == "phone":
         # Show area code hint: 555-***-****
-        digits = re.sub(r"\D", "", value)
+        digits = re.sub(r'\D', '', value)
         if len(digits) >= 10:
             return f"{digits[:3]}-***-****"
         return value[:3] + "*" * (len(value) - 3)
-
+        
     elif entity_type == "credit_card":
         # Show first 4 and last 4: 4111-****-****-1111
-        digits = re.sub(r"[\s-]", "", value)
+        digits = re.sub(r'[\s-]', '', value)
         if len(digits) >= 12:
             return f"{digits[:4]}-****-****-{digits[-4:]}"
         return value[:4] + "*" * (len(value) - 4)
-
+        
     elif entity_type == "uk_ni":
         # Show format hint: AB******C
         if len(value) >= 3:
             return f"{value[:2]}******{value[-1]}"
         return value[0] + "*" * (len(value) - 1)
-
+        
     elif entity_type == "address":
         # Show street number only: 123 **** Street
         parts = value.split()
         if len(parts) > 2:
             masked_parts = [parts[0]]  # Keep street number
-            masked_parts.extend(
-                "****" if i < len(parts) - 1 else part for i, part in enumerate(parts[1:], 1)
-            )
+            masked_parts.extend("****" if i < len(parts) - 1 else part 
+                               for i, part in enumerate(parts[1:], 1))
             return " ".join(masked_parts)
         return value[:3] + "*" * (len(value) - 3)
-
+        
     elif entity_type in ["iban", "uk_sort_account", "nhs_number"]:
         # Show first 4 chars: GB82 ****...
         if len(value) > 4:
             return value[:4] + " ****..."
         return value[:2] + "*" * (len(value) - 2)
-
+        
     else:
         # Generic masking: show first and last 2 chars
         if len(value) > 4:
@@ -281,12 +280,12 @@ def mask_pii_value(value: str, entity_type: str) -> str:
 
 def extract_match_details(pattern: re.Pattern, text: str, entity_type: str) -> List[Dict[str, Any]]:
     """Extract detailed match information including spans and masked previews.
-
+    
     Args:
         pattern: Compiled regex pattern
         text: Text to search
         entity_type: Type of PII entity for masking
-
+        
     Returns:
         List of match details with spans and masked values
     """
@@ -294,22 +293,20 @@ def extract_match_details(pattern: re.Pattern, text: str, entity_type: str) -> L
     for match in pattern.finditer(text):
         value = match.group(0)
         start, end = match.span()
-
+        
         # Get context around the match (20 chars before and after)
         context_start = max(0, start - 20)
         context_end = min(len(text), end + 20)
         context = text[context_start:start] + f"[{value}]" + text[end:context_end]
-
-        matches.append(
-            {
-                "value": mask_pii_value(value, entity_type),
-                "span": [start, end],
-                "context": context.replace(value, mask_pii_value(value, entity_type)),
-                "entity_type": entity_type,
-                "severity": get_pii_severity(entity_type),
-            }
-        )
-
+        
+        matches.append({
+            "value": mask_pii_value(value, entity_type),
+            "span": [start, end],
+            "context": context.replace(value, mask_pii_value(value, entity_type)),
+            "entity_type": entity_type,
+            "severity": get_pii_severity(entity_type)
+        })
+    
     return matches
 
 
@@ -331,51 +328,51 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
     # Initialize entity detection and match collection
     entities: Dict[str, bool] = {}
     all_matches: List[Dict[str, Any]] = [] if include_matches else []
-
+    
     # Check each entity type and collect matches if requested
-
+    
     # Email detection
     email_matches = EMAIL_PATTERN.findall(text) if include_matches else []
     entities["email"] = bool(EMAIL_PATTERN.search(text))
     if include_matches and email_matches:
         all_matches.extend(extract_match_details(EMAIL_PATTERN, text, "email"))
-
+    
     # Phone detection
     phone_matches = PHONE_PATTERN.findall(text) if include_matches else []
     entities["phone"] = bool(PHONE_PATTERN.search(text))
     if include_matches and phone_matches:
         all_matches.extend(extract_match_details(PHONE_PATTERN, text, "phone"))
-
+    
     # Credit card (initialized for later Luhn check)
     entities["credit_card"] = False
-
+    
     # UK NI detection
     ukni_matches = UK_NI_PATTERN.findall(text) if include_matches else []
     entities["uk_ni"] = bool(UK_NI_PATTERN.search(text))
     if include_matches and ukni_matches:
         all_matches.extend(extract_match_details(UK_NI_PATTERN, text, "uk_ni"))
-
+    
     # Address detection
     address_matches = ADDRESS_PATTERN.findall(text) if include_matches else []
     entities["address"] = bool(ADDRESS_PATTERN.search(text))
     if include_matches and address_matches:
         all_matches.extend(extract_match_details(ADDRESS_PATTERN, text, "address"))
-
+    
     # IBAN (initialized for later validation)
     entities["iban"] = False
-
+    
     # UK sort/account (initialized for later validation)
     entities["uk_sort_account"] = False
-
+    
     # UK passport detection
     passport_matches = UK_PASSPORT_PATTERN.findall(text) if include_matches else []
     entities["uk_passport"] = bool(UK_PASSPORT_PATTERN.search(text))
     if include_matches and passport_matches:
         all_matches.extend(extract_match_details(UK_PASSPORT_PATTERN, text, "uk_passport"))
-
+    
     # NHS number (initialized for later validation)
     entities["nhs_number"] = False
-
+    
     # UK postcode detection
     postcode_matches = UK_POSTCODE_PATTERN.findall(text) if include_matches else []
     entities["uk_postcode_strict"] = bool(UK_POSTCODE_PATTERN.search(text))
@@ -399,20 +396,14 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
                 value = match.group(0)
                 context_start = max(0, start - 20)
                 context_end = min(len(text), end + 20)
-                context = (
-                    text[context_start:start]
-                    + f"[{mask_pii_value(value, 'credit_card')}]"
-                    + text[end:context_end]
-                )
-                all_matches.append(
-                    {
-                        "value": mask_pii_value(value, "credit_card"),
-                        "span": [start, end],
-                        "context": context,
-                        "entity_type": "credit_card",
-                        "severity": "high",
-                    }
-                )
+                context = text[context_start:start] + f"[{mask_pii_value(value, 'credit_card')}]" + text[end:context_end]
+                all_matches.append({
+                    "value": mask_pii_value(value, "credit_card"),
+                    "span": [start, end],
+                    "context": context,
+                    "entity_type": "credit_card",
+                    "severity": "high"
+                })
 
     # Check IBANs with MOD-97 validation
     potential_ibans = IBAN_PATTERN.findall(text)
@@ -430,20 +421,14 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
                 value = match.group(0)
                 context_start = max(0, start - 20)
                 context_end = min(len(text), end + 20)
-                context = (
-                    text[context_start:start]
-                    + f"[{mask_pii_value(value, 'iban')}]"
-                    + text[end:context_end]
-                )
-                all_matches.append(
-                    {
-                        "value": mask_pii_value(value, "iban"),
-                        "span": [start, end],
-                        "context": context,
-                        "entity_type": "iban",
-                        "severity": "high",
-                    }
-                )
+                context = text[context_start:start] + f"[{mask_pii_value(value, 'iban')}]" + text[end:context_end]
+                all_matches.append({
+                    "value": mask_pii_value(value, "iban"),
+                    "span": [start, end],
+                    "context": context,
+                    "entity_type": "iban",
+                    "severity": "high"
+                })
 
     # Check NHS numbers with check digit validation
     potential_nhs = NHS_NUMBER_PATTERN.findall(text)
@@ -461,20 +446,14 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
                 value = match.group(0)
                 context_start = max(0, start - 20)
                 context_end = min(len(text), end + 20)
-                context = (
-                    text[context_start:start]
-                    + f"[{mask_pii_value(value, 'nhs_number')}]"
-                    + text[end:context_end]
-                )
-                all_matches.append(
-                    {
-                        "value": mask_pii_value(value, "nhs_number"),
-                        "span": [start, end],
-                        "context": context,
-                        "entity_type": "nhs_number",
-                        "severity": "high",
-                    }
-                )
+                context = text[context_start:start] + f"[{mask_pii_value(value, 'nhs_number')}]" + text[end:context_end]
+                all_matches.append({
+                    "value": mask_pii_value(value, "nhs_number"),
+                    "span": [start, end],
+                    "context": context,
+                    "entity_type": "nhs_number",
+                    "severity": "high"
+                })
 
     # Check UK sort code + account number combinations
     # Look for sort code followed by account number within reasonable distance
@@ -492,22 +471,22 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
 
     # Overall leak is true if any entity is detected
     leak = any(entities.values())
-
+    
     # Get list of detected entities
     detected_entities = [entity_type for entity_type, detected in entities.items() if detected]
-
+    
     # Analyze by severity
     severity_analysis: Dict[str, Dict[str, Any]] = {
         "high": {"detected": [], "count": 0},
-        "medium": {"detected": [], "count": 0},
+        "medium": {"detected": [], "count": 0}, 
         "low": {"detected": [], "count": 0},
     }
-
+    
     for entity_type in detected_entities:
         severity = get_pii_severity(entity_type)
         severity_analysis[severity]["detected"].append(entity_type)
         severity_analysis[severity]["count"] += 1
-
+    
     # Add severity flags for easy checking
     severity_flags = {
         "has_high_severity": severity_analysis["high"]["count"] > 0,
@@ -516,15 +495,15 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
     }
 
     result = {
-        "leak": leak,
+        "leak": leak, 
         "entities": entities,
         "severity_analysis": severity_analysis,
         "severity_flags": severity_flags,
         "detected_entities": detected_entities,
     }
-
+    
     # Add matches if requested
     if include_matches and all_matches is not None:
         result["matches"] = all_matches
-
+    
     return result

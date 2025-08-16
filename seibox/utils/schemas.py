@@ -10,7 +10,6 @@ SuiteId = Literal["pii", "injection", "benign"]
 
 class Message(BaseModel):
     """A single message in a conversation."""
-
     role: Literal["system", "user", "assistant"]
     content: str
     timestamp: str  # ISO format timestamp
@@ -19,7 +18,6 @@ class Message(BaseModel):
 
 class AdapterInfo(BaseModel):
     """Information about the adapter used for generation."""
-
     name: str  # e.g., "openai:gpt-4o-mini"
     model: str  # e.g., "gpt-4o-mini"
     params: Dict[str, Any] = Field(default_factory=dict)  # temperature, max_tokens, etc.
@@ -27,7 +25,6 @@ class AdapterInfo(BaseModel):
 
 class Trace(BaseModel):
     """Execution trace with full conversation details."""
-
     conversation_id: str
     system_prompt_hash: str
     system_prompt_preview: Optional[str] = None  # First line or first 100 chars
@@ -83,6 +80,4 @@ class OutputRecord(BaseModel):
     scores: Dict[str, float] | Dict[str, int]
     timing: Dict[str, float]  # {"latency_ms": 812}
     cost: Dict[str, float]  # {"input_tokens": 152, "output_tokens": 24, "usd": 0.0009}
-    trace: Trace | Dict[str, Any] = Field(
-        default_factory=dict
-    )  # Support both old dict format and new Trace
+    trace: Trace | Dict[str, Any] = Field(default_factory=dict)  # Support both old dict format and new Trace
