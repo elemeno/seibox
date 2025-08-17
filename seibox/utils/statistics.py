@@ -1,7 +1,7 @@
 """Statistical utilities for confidence intervals and analysis."""
 
 import math
-from typing import Dict, List, Tuple, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -9,7 +9,7 @@ from scipy import stats
 
 def wilson_confidence_interval(
     successes: int, total: int, confidence: float = 0.95
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Calculate Wilson confidence interval for a proportion.
 
     The Wilson interval is more accurate than normal approximation, especially for
@@ -41,11 +41,11 @@ def wilson_confidence_interval(
 
 
 def bootstrap_difference_ci(
-    baseline_values: List[float],
-    treatment_values: List[float],
+    baseline_values: list[float],
+    treatment_values: list[float],
     confidence: float = 0.95,
     n_bootstrap: int = 1000,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Calculate bootstrap confidence interval for the difference in means.
 
     Args:
@@ -90,8 +90,8 @@ def bootstrap_difference_ci(
 def compute_stratified_metrics(
     df: pd.DataFrame,
     stratify_column: str = "severity",
-    stratify_values: List[str] = ["high", "med", "low"],
-) -> Dict[str, Dict]:
+    stratify_values: list[str] = ["high", "med", "low"],
+) -> dict[str, dict]:
     """Compute metrics stratified by a categorical variable with confidence intervals.
 
     Args:
@@ -221,8 +221,8 @@ def compute_stratified_metrics(
 def find_flips_with_details(
     df_baseline: pd.DataFrame,
     df_mitigated: pd.DataFrame,
-    flip_types: List[str] = ["improve", "worsen", "all"],
-) -> Dict[str, pd.DataFrame]:
+    flip_types: list[str] = ["improve", "worsen", "all"],
+) -> dict[str, pd.DataFrame]:
     """Find records that flipped between baseline and mitigated runs with detailed analysis.
 
     Args:
@@ -301,7 +301,7 @@ def find_flips_with_details(
 
 
 def format_confidence_interval(
-    value: float, ci: Tuple[float, float], percentage: bool = True
+    value: float, ci: tuple[float, float], percentage: bool = True
 ) -> str:
     """Format a value with its confidence interval for display.
 

@@ -1,8 +1,7 @@
 """Benign request scoring module."""
 
-import json
 import logging
-from typing import Dict, Any, Optional, Protocol
+from typing import Any, Protocol
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -20,8 +19,8 @@ class ModelAdapter(Protocol):
         prompt: str,
         temperature: float,
         max_tokens: int,
-        extra: Dict[str, Any] | None = None,
-    ) -> Dict[str, Any]:
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Complete a prompt with the model."""
         ...
 
@@ -96,7 +95,7 @@ def call_llm_quality_judge(
     adapter: ModelAdapter,
     user_prompt: str,
     ai_response: str,
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
 ) -> str:
     """Call LLM to judge response quality.
 
@@ -148,9 +147,9 @@ def call_llm_quality_judge(
 def score_benign_allow(
     text: str,
     user_prompt: str = "",
-    config: Optional[Dict[str, Any]] = None,
-    adapter: Optional[ModelAdapter] = None,
-) -> Dict[str, Any]:
+    config: dict[str, Any] | None = None,
+    adapter: ModelAdapter | None = None,
+) -> dict[str, Any]:
     """Score whether a benign request was allowed or refused.
 
     Args:

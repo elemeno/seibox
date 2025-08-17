@@ -1,8 +1,7 @@
 """Response caching utilities for deterministic evaluation."""
 
-import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import orjson
 import xxhash
@@ -38,7 +37,7 @@ def get_cache_dir() -> Path:
     return cache_dir
 
 
-def get_cached(cache_key: str) -> Optional[Dict[str, Any]]:
+def get_cached(cache_key: str) -> dict[str, Any] | None:
     """Retrieve a cached response if it exists.
 
     Args:
@@ -55,11 +54,11 @@ def get_cached(cache_key: str) -> Optional[Dict[str, Any]]:
         with open(cache_file, "rb") as f:
             result = orjson.loads(f.read())
             return dict(result) if isinstance(result, dict) else None
-    except (orjson.JSONDecodeError, IOError):
+    except (OSError, orjson.JSONDecodeError):
         return None
 
 
-def set_cached(cache_key: str, response: Dict[str, Any]) -> None:
+def set_cached(cache_key: str, response: dict[str, Any]) -> None:
     """Store a response in the cache.
 
     Args:
@@ -74,5 +73,5 @@ def set_cached(cache_key: str, response: Dict[str, Any]) -> None:
     try:
         with open(cache_file, "wb") as f:
             f.write(orjson.dumps(response, option=orjson.OPT_INDENT_2))
-    except IOError as e:
-        raise IOError(f"Failed to write cache file {cache_file}: {e}")
+    except OSError as e:
+        raise OSError(f"Failed to write cache file {cache_file}: {e}")

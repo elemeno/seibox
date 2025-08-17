@@ -1,15 +1,15 @@
 """Domain-specific language for prompt template rendering."""
 
-import re
 import random
+import re
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Any
+
 import xxhash
 from faker import Faker
 
 from seibox.utils.prompt_spec import PromptSpec
 from seibox.utils.schemas import InputRecord
-
 
 # Initialize Faker with fixed seed for reproducibility
 fake = Faker()
@@ -158,7 +158,7 @@ def last4(text: str) -> str:
     return clean[-4:] if len(clean) >= 4 else clean
 
 
-def render_template(template: str, vars: Dict[str, Any], seed: int) -> str:
+def render_template(template: str, vars: dict[str, Any], seed: int) -> str:
     """Render a template with built-in helpers and custom variables.
 
     Args:
@@ -238,7 +238,7 @@ def render_template(template: str, vars: Dict[str, Any], seed: int) -> str:
     return rendered
 
 
-def to_input_record(spec: PromptSpec, suite_override: Optional[str] = None) -> InputRecord:
+def to_input_record(spec: PromptSpec, suite_override: str | None = None) -> InputRecord:
     """Convert a PromptSpec to an InputRecord.
 
     Args:
@@ -285,7 +285,7 @@ def to_input_record(spec: PromptSpec, suite_override: Optional[str] = None) -> I
     )
 
 
-def validate_template_syntax(template: str) -> tuple[bool, Optional[str]]:
+def validate_template_syntax(template: str) -> tuple[bool, str | None]:
     """Validate template syntax for common errors.
 
     Args:

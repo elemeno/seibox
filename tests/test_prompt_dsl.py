@@ -1,21 +1,23 @@
 """Unit tests for prompt DSL and template rendering."""
 
-import pytest
 import re
-from seibox.utils.prompt_spec import PromptSpec, PromptSpecValidationResult
+
+import pytest
+
 from seibox.datasets.dsl import (
+    choice,
+    generate_email,
+    generate_phone_e164,
+    generate_uk_address,
+    generate_uk_ni,
+    generate_valid_credit_card,
+    last4,
+    luhn_checksum,
     render_template,
     to_input_record,
     validate_template_syntax,
-    luhn_checksum,
-    generate_valid_credit_card,
-    generate_uk_ni,
-    generate_uk_address,
-    generate_email,
-    generate_phone_e164,
-    choice,
-    last4,
 )
+from seibox.utils.prompt_spec import PromptSpec
 
 
 class TestDeterminism:

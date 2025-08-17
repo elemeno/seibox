@@ -3,13 +3,12 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
 
 from jinja2 import Template
 
-from seibox.utils.io import read_jsonl
-from seibox.utils.schemas import OutputRecord, Trace
 from seibox.scoring.aggregate import aggregate_metrics
+from seibox.utils.io import read_jsonl
+from seibox.utils.schemas import OutputRecord
 
 
 def _get_trace_mitigations(trace):
@@ -162,7 +161,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <h1>🛡️ Safety Evals in a Box - Evaluation Report</h1>
-    
+
     <div class="report-meta">
         <p><strong>Generated:</strong> {{ timestamp }}</p>
         <p><strong>Model:</strong> {{ model_name }}</p>
@@ -233,7 +232,7 @@ HTML_TEMPLATE = """
 
     {% if entity_metrics or severity_metrics %}
     <h2>🎯 PII Entity & Severity Analysis</h2>
-    
+
     <div class="comparison-table">
         <div>
             <h3>Per-Entity Leak Rates</h3>
@@ -262,7 +261,7 @@ HTML_TEMPLATE = """
             <p>No entity-specific metrics available</p>
             {% endif %}
         </div>
-        
+
         <div>
             <h3>Severity-Level Summary</h3>
             {% if severity_metrics %}
@@ -288,7 +287,7 @@ HTML_TEMPLATE = """
                 {% endif %}
                 {% endfor %}
             </table>
-            
+
             <h4>Entity Types by Severity</h4>
             {% for severity, data in severity_metrics.items() %}
             {% if data.entity_types %}
@@ -314,7 +313,7 @@ HTML_TEMPLATE = """
     {% endif %}
 
     <h2>🔍 Example Cases</h2>
-    
+
     <h3>PII Detection Examples</h3>
     {% for example in pii_examples[:5] %}
     <div class="example-box">
@@ -389,7 +388,7 @@ HTML_TEMPLATE = """
 def generate_report(
     results_path: str,
     output_path: str,
-    comparison_path: Optional[str] = None,
+    comparison_path: str | None = None,
 ) -> None:
     """Generate an HTML report from evaluation results.
 
@@ -531,7 +530,7 @@ def generate_model_reports(plan, reports_dir: str) -> None:
             # Get summary for this category
             summary_path = Path(category_data["result_file"]).with_suffix(".summary.json")
             if summary_path.exists():
-                with open(summary_path, "r") as f:
+                with open(summary_path) as f:
                     category_summaries[category_data["category"]] = json.load(f)
 
         # Generate combined metrics
@@ -621,12 +620,12 @@ def generate_model_reports(plan, reports_dir: str) -> None:
 </head>
 <body>
     <h1>🛡️ {{ model_name }} Safety Evaluation</h1>
-    
+
     <div class="category-section">
         <div class="category-header">
             <h2>📊 Overall Performance Summary</h2>
         </div>
-        
+
         <div class="metrics-grid">
             <div class="metric-card">
                 <div class="metric-value">{{ categories|length }}</div>
@@ -646,14 +645,14 @@ def generate_model_reports(plan, reports_dir: str) -> None:
             </div>
         </div>
     </div>
-    
+
     <div class="comparison-grid">
         {% for category, summary in category_summaries.items() %}
         <div class="category-section">
             <div class="category-header">
                 <h3>{{ category|title }} Category</h3>
             </div>
-            
+
             <table>
                 <tr>
                     <th>Metric</th>
@@ -699,39 +698,39 @@ def generate_model_reports(plan, reports_dir: str) -> None:
         </div>
         {% endfor %}
     </div>
-    
+
     <div class="category-section">
         <div class="category-header">
             <h2>📈 Performance Analysis</h2>
         </div>
-        
+
         <h3>Key Insights</h3>
         <ul>
             {% set avg_safety = category_summaries.values() | selectattr('safety_coverage', 'defined') | map(attribute='safety_coverage') | list %}
             {% if avg_safety %}
             <li><strong>Average Safety Coverage:</strong> {{ "%.1f"|format((avg_safety | sum / avg_safety | length) * 100) }}% across {{ avg_safety | length }} categories</li>
             {% endif %}
-            
+
             {% set avg_benign = category_summaries.values() | selectattr('benign_pass_rate', 'defined') | map(attribute='benign_pass_rate') | list %}
             {% if avg_benign %}
             <li><strong>Average Benign Pass Rate:</strong> {{ "%.1f"|format((avg_benign | sum / avg_benign | length) * 100) }}% (helpfulness measure)</li>
             {% endif %}
-            
+
             {% set total_cost = category_summaries.values() | map(attribute='cost.total_usd', default=0) | sum %}
             <li><strong>Total Evaluation Cost:</strong> ${{ "%.4f"|format(total_cost) }}</li>
-            
+
             {% set categories_with_issues = category_summaries.values() | selectattr('safety_coverage', 'defined') | selectattr('safety_coverage', '<', 0.8) | list %}
             {% if categories_with_issues %}
             <li><strong>Categories Needing Attention:</strong> {{ categories_with_issues | length }} categories with safety coverage below 80%</li>
             {% endif %}
         </ul>
     </div>
-    
+
     <div class="category-section">
         <div class="category-header">
             <h2>ℹ️ Report Metadata</h2>
         </div>
-        
+
         <table>
             <tr>
                 <td><strong>Model:</strong></td>

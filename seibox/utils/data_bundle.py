@@ -1,17 +1,18 @@
 """Data bundle generation for landscape evaluation results."""
 
 import json
-import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
+
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 from seibox.runners.matrix import Plan
 
 
 def calculate_confidence_interval(
-    values: List[float], confidence: float = 0.95
+    values: list[float], confidence: float = 0.95
 ) -> tuple[float, float]:
     """Calculate confidence interval for a list of values.
 
@@ -37,7 +38,7 @@ def calculate_confidence_interval(
     return (mean - margin_error, mean + margin_error)
 
 
-def extract_detailed_metrics(summary: Dict[str, Any]) -> Dict[str, Any]:
+def extract_detailed_metrics(summary: dict[str, Any]) -> dict[str, Any]:
     """Extract detailed metrics from evaluation summary."""
     metrics = {}
 
@@ -119,7 +120,7 @@ def generate_parquet_bundle(plan: Plan, output_path: str) -> None:
             continue
 
         try:
-            with open(summary_path, "r") as f:
+            with open(summary_path) as f:
                 summary = json.load(f)
 
             # Extract all metrics
@@ -275,7 +276,7 @@ def load_parquet_bundle(parquet_path: str) -> pd.DataFrame:
     return df
 
 
-def get_metric_summary(df: pd.DataFrame, metric_name: str) -> Dict[str, Any]:
+def get_metric_summary(df: pd.DataFrame, metric_name: str) -> dict[str, Any]:
     """Get summary statistics for a specific metric across all models/categories.
 
     Args:

@@ -2,15 +2,15 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
+
 from rich.console import Console
 from rich.table import Table
 
 from seibox.runners.eval_runner import run_eval
+from seibox.scoring.aggregate import aggregate_metrics
 from seibox.utils.io import read_jsonl
 from seibox.utils.schemas import OutputRecord
-from seibox.scoring.aggregate import aggregate_metrics
-from seibox.ui.report import generate_report
 
 console = Console()
 
@@ -48,8 +48,8 @@ def run_ablation_study(config_path: str, model_name: str, output_dir: str) -> No
         },
     ]
 
-    console.print(f"[bold green]🚀 Starting Ablation Study[/bold green]")
-    console.print(f"Suite: pi-injection")
+    console.print("[bold green]🚀 Starting Ablation Study[/bold green]")
+    console.print("Suite: pi-injection")
     console.print(f"Model: {model_name}")
     console.print(f"Conditions: {len(conditions)}")
     console.print()
@@ -112,11 +112,11 @@ def run_ablation_study(config_path: str, model_name: str, output_dir: str) -> No
     # Display summary table
     display_summary_table(results)
 
-    console.print(f"[bold green]🎯 Ablation Study Complete![/bold green]")
+    console.print("[bold green]🎯 Ablation Study Complete![/bold green]")
     console.print(f"Results saved to: {output_dir}")
 
 
-def generate_comparison_data(results: Dict[str, Any]) -> Dict[str, Any]:
+def generate_comparison_data(results: dict[str, Any]) -> dict[str, Any]:
     """Generate comparison data structure for JSON output."""
     comparison = {"study_type": "ablation", "conditions": {}, "deltas": {}}
 
@@ -180,7 +180,7 @@ def generate_comparison_data(results: Dict[str, Any]) -> Dict[str, Any]:
     return comparison
 
 
-def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
+def generate_ablation_report(results: dict[str, Any], output_path: str) -> None:
     """Generate comprehensive HTML report for ablation study."""
 
     # Create enhanced HTML template for ablation
@@ -265,7 +265,7 @@ def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
 </head>
 <body>
     <h1>🔬 Safety Evals Ablation Study</h1>
-    
+
     <h2>📊 Conditions Overview</h2>
     <div class="conditions-grid">
         {% for name, result in results.items() %}
@@ -273,7 +273,7 @@ def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
             <div class="condition-title">{{ result.condition.name.title() }}</div>
             <div class="condition-desc">{{ result.condition.description }}</div>
             <div class="condition-desc">Mitigation: {{ result.condition.mitigation }}</div>
-            
+
             <div class="metrics-row">
                 <span class="metric-name">Safety Coverage</span>
                 <span class="metric-value">{{ "%.1f%%" | format(result.metrics.safety_coverage * 100) }}</span>
@@ -301,7 +301,7 @@ def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
         </div>
         {% endfor %}
     </div>
-    
+
     <h2>📈 Comparison Table</h2>
     <div class="comparison-table">
         <table>
@@ -355,8 +355,9 @@ def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
 </html>
 """
 
-    from jinja2 import Template
     from datetime import datetime
+
+    from jinja2 import Template
 
     template = Template(ablation_html)
     html = template.render(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), results=results)
@@ -365,7 +366,7 @@ def generate_ablation_report(results: Dict[str, Any], output_path: str) -> None:
         f.write(html)
 
 
-def display_summary_table(results: Dict[str, Any]) -> None:
+def display_summary_table(results: dict[str, Any]) -> None:
     """Display summary comparison table in terminal."""
 
     table = Table(title="🎯 Ablation Study Results", show_header=True, header_style="bold magenta")

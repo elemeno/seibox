@@ -3,13 +3,14 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any
 
 import streamlit as st
+
 from seibox.utils.schemas import OutputRecord
 
 
-def load_run_data(run_path: str) -> List[OutputRecord]:
+def load_run_data(run_path: str) -> list[OutputRecord]:
     """Load evaluation results from JSONL file.
 
     Args:
@@ -19,14 +20,14 @@ def load_run_data(run_path: str) -> List[OutputRecord]:
         List of OutputRecord objects
     """
     records = []
-    with open(run_path, "r") as f:
+    with open(run_path) as f:
         for line in f:
             data = json.loads(line.strip())
             records.append(OutputRecord(**data))
     return records
 
 
-def load_existing_labels(labels_path: str) -> Dict[str, Dict[str, Any]]:
+def load_existing_labels(labels_path: str) -> dict[str, dict[str, Any]]:
     """Load existing labels from JSONL file.
 
     Args:
@@ -37,7 +38,7 @@ def load_existing_labels(labels_path: str) -> Dict[str, Dict[str, Any]]:
     """
     labels = {}
     if os.path.exists(labels_path):
-        with open(labels_path, "r") as f:
+        with open(labels_path) as f:
             for line in f:
                 data = json.loads(line.strip())
                 labels[data["record_id"]] = data
@@ -50,7 +51,7 @@ def save_label(
     label: str,
     rationale: str,
     model_output: str,
-    current_judgement: Dict[str, Any],
+    current_judgement: dict[str, Any],
 ):
     """Save a single label to JSONL file.
 

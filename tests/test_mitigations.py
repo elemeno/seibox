@@ -1,7 +1,5 @@
 """Tests for mitigation modules."""
 
-import pytest
-
 from seibox.mitigations.policy_gate import gate
 from seibox.mitigations.prompt_hardening import hardening
 

@@ -7,9 +7,9 @@ scores, timing, and cost information for individual evaluation samples.
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 from jinja2 import Environment, FileSystemLoader
-import hashlib
 
 
 def format_tokens(tokens: float) -> str:
@@ -33,7 +33,7 @@ def format_latency(ms: float) -> str:
     return f"{int(ms)}ms"
 
 
-def get_score_status(scores: Dict[str, Any]) -> str:
+def get_score_status(scores: dict[str, Any]) -> str:
     """Determine overall status from scores."""
     if scores.get("leak", 0) > 0:
         return "blocked"
@@ -44,7 +44,7 @@ def get_score_status(scores: Dict[str, Any]) -> str:
     return "unknown"
 
 
-def extract_system_prompt(messages: list) -> Optional[str]:
+def extract_system_prompt(messages: list) -> str | None:
     """Extract full system prompt if available."""
     for msg in messages:
         if msg.get("role") == "system":
@@ -56,27 +56,29 @@ def extract_system_prompt(messages: list) -> Optional[str]:
     return None
 
 
-def get_entity_spans(trace: Dict[str, Any]) -> list:
+def get_entity_spans(trace: dict[str, Any]) -> list:
     """Extract PII entity spans from trace matches."""
     spans = []
     matches = trace.get("matches", [])
-    
+
     for match in matches:
         if isinstance(match, dict):
-            spans.append({
-                "entity": match.get("entity", "unknown"),
-                "value": match.get("value", ""),
-                "start": match.get("start", 0),
-                "end": match.get("end", 0)
-            })
-    
+            spans.append(
+                {
+                    "entity": match.get("entity", "unknown"),
+                    "value": match.get("value", ""),
+                    "start": match.get("start", 0),
+                    "end": match.get("end", 0),
+                }
+            )
+
     return spans
 
 
-def render_drilldown(record: Dict[str, Any], out_html: str) -> None:
+def render_drilldown(record: dict[str, Any], out_html: str) -> None:
     """
     Render a single evaluation record to an HTML drilldown page.
-    
+
     Args:
         record: The evaluation record dictionary
         out_html: Path to write the HTML output
@@ -84,24 +86,24 @@ def render_drilldown(record: Dict[str, Any], out_html: str) -> None:
     # Set up Jinja2 environment
     template_dir = Path(__file__).parent / "templates"
     env = Environment(loader=FileSystemLoader(str(template_dir)))
-    
+
     # Add custom filters
     env.filters["format_tokens"] = format_tokens
     env.filters["format_cost"] = format_cost
     env.filters["format_latency"] = format_latency
-    
+
     # Load template
     template = env.get_template("drilldown.html.j2")
-    
+
     # Prepare context
     trace = record.get("trace", {})
     messages = trace.get("messages", [])
-    
+
     # Extract user and assistant messages
     user_message = None
     assistant_message = None
     system_prompt = None
-    
+
     for msg in messages:
         role = msg.get("role")
         if role == "user" and user_message is None:
@@ -118,43 +120,58 @@ def render_drilldown(record: Dict[str, Any], out_html: str) -> None:
                 system_prompt = trace.get("system_prompt_preview", "")
                 if system_prompt:
                     system_prompt += "..."
-    
+
     # Prepare score details
     scores = record.get("scores", {})
     score_items = []
-    
+
     # PII scores
-    pii_entities = ["email", "phone", "credit_card", "uk_ni", "address", 
-                    "iban", "uk_sort_account", "uk_passport", "nhs_number"]
+    pii_entities = [
+        "email",
+        "phone",
+        "credit_card",
+        "uk_ni",
+        "address",
+        "iban",
+        "uk_sort_account",
+        "uk_passport",
+        "nhs_number",
+    ]
     for entity in pii_entities:
         if entity in scores:
-            score_items.append({
-                "name": entity.replace("_", " ").title(),
-                "value": scores[entity],
-                "type": "pii",
-                "detected": scores[entity] > 0
-            })
-    
+            score_items.append(
+                {
+                    "name": entity.replace("_", " ").title(),
+                    "value": scores[entity],
+                    "type": "pii",
+                    "detected": scores[entity] > 0,
+                }
+            )
+
     # Other scores
     if "injection_success" in scores:
-        score_items.append({
-            "name": "Injection Success",
-            "value": scores["injection_success"],
-            "type": "injection",
-            "detected": scores["injection_success"] > 0
-        })
-    
+        score_items.append(
+            {
+                "name": "Injection Success",
+                "value": scores["injection_success"],
+                "type": "injection",
+                "detected": scores["injection_success"] > 0,
+            }
+        )
+
     if "allowed" in scores:
-        score_items.append({
-            "name": "Allowed",
-            "value": scores["allowed"],
-            "type": "benign",
-            "detected": scores["allowed"] > 0
-        })
-    
+        score_items.append(
+            {
+                "name": "Allowed",
+                "value": scores["allowed"],
+                "type": "benign",
+                "detected": scores["allowed"] > 0,
+            }
+        )
+
     # Get entity spans
     entity_spans = get_entity_spans(trace)
-    
+
     # Prepare context
     context = {
         "record": record,
@@ -175,12 +192,12 @@ def render_drilldown(record: Dict[str, Any], out_html: str) -> None:
         "judgement": record.get("judgement", {}),
         "gold": trace.get("gold", {}),
         "conversation_id": trace.get("conversation_id", ""),
-        "messages": messages
+        "messages": messages,
     }
-    
+
     # Render HTML
     html_content = template.render(**context)
-    
+
     # Write to file
     out_path = Path(out_html)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -190,28 +207,30 @@ def render_drilldown(record: Dict[str, Any], out_html: str) -> None:
 def create_index(jsonl_path: str, index_path: str) -> None:
     """
     Create an index file for fast record lookup.
-    
+
     Args:
         jsonl_path: Path to the JSONL file
         index_path: Path to write the index JSON
     """
     index = []
-    
+
     with open(jsonl_path, "rb") as f:
         offset = 0
         for line_num, line in enumerate(f):
             if line.strip():
                 try:
                     record = json.loads(line)
-                    index.append({
-                        "id": record.get("id", f"record_{line_num}"),
-                        "offset": offset,
-                        "length": len(line)
-                    })
+                    index.append(
+                        {
+                            "id": record.get("id", f"record_{line_num}"),
+                            "offset": offset,
+                            "length": len(line),
+                        }
+                    )
                 except json.JSONDecodeError:
                     pass
             offset = f.tell()
-    
+
     # Write index
     index_path = Path(index_path)
     index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -219,15 +238,15 @@ def create_index(jsonl_path: str, index_path: str) -> None:
         json.dump(index, f, indent=2)
 
 
-def load_record_by_offset(jsonl_path: str, offset: int, length: int) -> Dict[str, Any]:
+def load_record_by_offset(jsonl_path: str, offset: int, length: int) -> dict[str, Any]:
     """
     Load a specific record from JSONL using byte offset.
-    
+
     Args:
         jsonl_path: Path to the JSONL file
         offset: Byte offset of the record
         length: Length of the record in bytes
-        
+
     Returns:
         The parsed record dictionary
     """

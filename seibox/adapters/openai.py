@@ -2,7 +2,8 @@
 
 import os
 import time
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -51,11 +52,11 @@ class OpenAIAdapter:
     def complete(
         self,
         *,
-        system: Optional[str],
+        system: str | None,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        extra: Optional[Mapping[str, Any]] = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> dict:
         """Generate a completion from OpenAI.
 
@@ -101,7 +102,7 @@ class OpenAIAdapter:
             total_tokens = response.usage.total_tokens
         else:
             # Estimate tokens if OpenAI doesn't provide usage info
-            from seibox.utils.tokens import estimate_tokens_for_messages, estimate_tokens
+            from seibox.utils.tokens import estimate_tokens, estimate_tokens_for_messages
 
             input_tokens = estimate_tokens_for_messages(messages, self.model_name)
             output_tokens = estimate_tokens(text_content, self.model_name)

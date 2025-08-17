@@ -1,10 +1,9 @@
 """Token counting utilities with fallback estimation methods."""
 
 import re
-from typing import Optional
 
 
-def estimate_tokens_tiktoken(text: str, model_name: str = "gpt-3.5-turbo") -> Optional[int]:
+def estimate_tokens_tiktoken(text: str, model_name: str = "gpt-3.5-turbo") -> int | None:
     """Estimate tokens using tiktoken library.
 
     Args:

@@ -1,12 +1,13 @@
 """Golden comparison functionality for evaluation metrics."""
 
-from typing import Dict, Any, List, Optional
 import json
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 
-def compare_to_golden(matrix_df: pd.DataFrame, golden_dir: str) -> Dict[str, Any]:
+def compare_to_golden(matrix_df: pd.DataFrame, golden_dir: str) -> dict[str, Any]:
     """Compare current metrics to golden reference values.
 
     Args:
@@ -36,7 +37,7 @@ def compare_to_golden(matrix_df: pd.DataFrame, golden_dir: str) -> Dict[str, Any
     else:
         # Load JSONL and convert to DataFrame
         golden_records = []
-        with open(golden_matrix_file, "r") as f:
+        with open(golden_matrix_file) as f:
             for line in f:
                 golden_records.append(json.loads(line))
         golden_df = pd.DataFrame(golden_records)
@@ -166,7 +167,7 @@ def _determine_comparison_status(metric: str, delta_pp: float) -> str:
         return "neutral"
 
 
-def _calculate_comparison_summary(comparisons: Dict[str, Any]) -> Dict[str, Any]:
+def _calculate_comparison_summary(comparisons: dict[str, Any]) -> dict[str, Any]:
     """Calculate summary statistics across all comparisons.
 
     Args:

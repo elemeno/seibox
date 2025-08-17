@@ -1,17 +1,18 @@
 """Aggregate metrics computation for evaluation results."""
 
-from typing import Dict, Any, List, Tuple
-import statistics
 import math
+import statistics
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
-from seibox.utils.schemas import OutputRecord, Trace
-from seibox.utils.io import read_jsonl
 from seibox.scoring.pii import get_pii_severity
+from seibox.utils.io import read_jsonl
+from seibox.utils.schemas import OutputRecord
 
 
-def wilson_interval(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
+def wilson_interval(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     """Compute Wilson confidence interval for a proportion.
 
     Args:
@@ -42,7 +43,7 @@ def wilson_interval(k: int, n: int, z: float = 1.96) -> Tuple[float, float]:
     return (lower, upper)
 
 
-def _get_gold_from_trace(trace) -> Dict[str, Any]:
+def _get_gold_from_trace(trace) -> dict[str, Any]:
     """Extract gold labels from trace, handling both old dict and new Trace formats."""
     if hasattr(trace, "gold"):
         # New Trace format
@@ -54,7 +55,7 @@ def _get_gold_from_trace(trace) -> Dict[str, Any]:
         return {}
 
 
-def aggregate_metrics(records: List[OutputRecord]) -> Dict[str, Any]:
+def aggregate_metrics(records: list[OutputRecord]) -> dict[str, Any]:
     """Compute aggregate metrics from evaluation records.
 
     Args:
@@ -159,7 +160,7 @@ def aggregate_metrics(records: List[OutputRecord]) -> Dict[str, Any]:
     return {**base_metrics, **entity_metrics, **severity_metrics}
 
 
-def compute_entity_metrics(pii_records: List[OutputRecord]) -> Dict[str, Any]:
+def compute_entity_metrics(pii_records: list[OutputRecord]) -> dict[str, Any]:
     """Compute per-entity PII detection metrics.
 
     Args:
@@ -218,7 +219,7 @@ def compute_entity_metrics(pii_records: List[OutputRecord]) -> Dict[str, Any]:
     return {"entity_metrics": entity_metrics}
 
 
-def compute_severity_metrics(pii_records: List[OutputRecord]) -> Dict[str, Any]:
+def compute_severity_metrics(pii_records: list[OutputRecord]) -> dict[str, Any]:
     """Compute severity-based PII detection metrics.
 
     Args:
@@ -290,7 +291,7 @@ def compute_severity_metrics(pii_records: List[OutputRecord]) -> Dict[str, Any]:
     return {"severity_metrics": severity_metrics}
 
 
-def aggregate_cell(path: str) -> Dict[str, Any]:
+def aggregate_cell(path: str) -> dict[str, Any]:
     """Compute metrics for a single cell (model, category, profile).
 
     Args:

@@ -1,25 +1,21 @@
 """Health checks and diagnostics for seibox."""
 
 import os
-import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import requests
-import yaml
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from seibox.runners.eval_runner import get_adapter, load_config, load_dataset
-from seibox.utils import cost, cache
-
+from seibox.utils import cost
 
 console = Console()
 
 
-def check_api_keys() -> Dict[str, bool]:
+def check_api_keys() -> dict[str, bool]:
     """Check if API keys are configured for different providers.
 
     Returns:
@@ -77,7 +73,7 @@ def check_api_keys() -> Dict[str, bool]:
     return keys_status
 
 
-def check_provider_connectivity(model_name: Optional[str] = None) -> Dict[str, bool]:
+def check_provider_connectivity(model_name: str | None = None) -> dict[str, bool]:
     """Test connectivity to different providers.
 
     Args:
@@ -86,7 +82,7 @@ def check_provider_connectivity(model_name: Optional[str] = None) -> Dict[str, b
     Returns:
         Dictionary mapping provider names to connectivity status
     """
-    console.print(f"\n[bold blue]Checking provider connectivity...[/bold blue]")
+    console.print("\n[bold blue]Checking provider connectivity...[/bold blue]")
 
     connectivity_status = {}
     models_to_test = []
@@ -138,13 +134,13 @@ def check_provider_connectivity(model_name: Optional[str] = None) -> Dict[str, b
     return connectivity_status
 
 
-def check_cache_directory() -> Dict[str, any]:
+def check_cache_directory() -> dict[str, any]:
     """Check if cache directory exists and is writable.
 
     Returns:
         Dictionary with cache directory status information
     """
-    console.print(f"\n[bold blue]Checking cache directory...[/bold blue]")
+    console.print("\n[bold blue]Checking cache directory...[/bold blue]")
 
     # Get cache directory from cache module
     cache_dir = Path(".cache")  # Default cache location
@@ -202,7 +198,7 @@ def check_cache_directory() -> Dict[str, any]:
     return cache_status
 
 
-def estimate_run_cost(config_path: str, suite_name: Optional[str] = None) -> Dict[str, any]:
+def estimate_run_cost(config_path: str, suite_name: str | None = None) -> dict[str, any]:
     """Estimate cost for a planned evaluation run.
 
     Args:
@@ -212,7 +208,7 @@ def estimate_run_cost(config_path: str, suite_name: Optional[str] = None) -> Dic
     Returns:
         Dictionary with cost estimation details
     """
-    console.print(f"\n[bold blue]Estimating run costs...[/bold blue]")
+    console.print("\n[bold blue]Estimating run costs...[/bold blue]")
 
     try:
         # Load configuration
@@ -298,9 +294,9 @@ def estimate_run_cost(config_path: str, suite_name: Optional[str] = None) -> Dic
 
 
 def run_health_checks(
-    config_path: Optional[str] = None,
-    model_name: Optional[str] = None,
-    suite_name: Optional[str] = None,
+    config_path: str | None = None,
+    model_name: str | None = None,
+    suite_name: str | None = None,
 ):
     """Run all health checks and diagnostics.
 
@@ -341,7 +337,7 @@ def run_health_checks(
             issues.append(f"Could not load config: {e}")
 
     # Final summary
-    console.print(f"\n[bold blue]Health Check Summary[/bold blue]")
+    console.print("\n[bold blue]Health Check Summary[/bold blue]")
 
     if not issues:
         console.print(Panel("[bold green]✓ All checks passed![/bold green]", style="green"))
@@ -351,7 +347,7 @@ def run_health_checks(
         for issue in issues:
             console.print(f"  • {issue}")
 
-        console.print(f"\n[yellow]Suggestions:[/yellow]")
+        console.print("\n[yellow]Suggestions:[/yellow]")
         if "No API keys configured" in " ".join(issues):
             console.print("  • Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variables")
             console.print("  • Or create a .env file with your API keys")

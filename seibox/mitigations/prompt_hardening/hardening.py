@@ -1,7 +1,6 @@
 """Prompt hardening utilities for system prompt injection."""
 
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -14,12 +13,12 @@ def load_templates() -> dict:
     """
     template_path = Path(__file__).parent / "templates.yaml"
 
-    with open(template_path, "r") as f:
+    with open(template_path) as f:
         result = yaml.safe_load(f)
         return dict(result) if isinstance(result, dict) else {}
 
 
-def get_system_prompt(template_name: str = "default_v0") -> Optional[str]:
+def get_system_prompt(template_name: str = "default_v0") -> str | None:
     """Get a system prompt template by name.
 
     Args:

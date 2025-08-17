@@ -1,7 +1,6 @@
 """Core data schemas for Safety Evals in a Box."""
 
-from typing import Any, Dict, List, Optional, Literal
-from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +28,7 @@ class AdapterInfo(BaseModel):
 
     name: str  # e.g., "openai:gpt-4o-mini"
     model: str  # e.g., "gpt-4o-mini"
-    params: Dict[str, Any] = Field(default_factory=dict)  # temperature, max_tokens, etc.
+    params: dict[str, Any] = Field(default_factory=dict)  # temperature, max_tokens, etc.
 
 
 class Trace(BaseModel):
@@ -37,19 +36,19 @@ class Trace(BaseModel):
 
     conversation_id: str
     system_prompt_hash: str
-    system_prompt_preview: Optional[str] = None  # First line or first 100 chars
+    system_prompt_preview: str | None = None  # First line or first 100 chars
     include_system_full: bool = False  # Whether full system prompt is included
-    messages: List[Message] = Field(default_factory=list)
-    adapter: Optional[AdapterInfo] = None
-    mitigations: List[str] = Field(default_factory=list)
-    matches: List[Dict[str, Any]] = Field(default_factory=list)  # PII/entity matches
-    gold: Dict[str, Any] = Field(default_factory=dict)  # Ground truth labels
+    messages: list[Message] = Field(default_factory=list)
+    adapter: AdapterInfo | None = None
+    mitigations: list[str] = Field(default_factory=list)
+    matches: list[dict[str, Any]] = Field(default_factory=list)  # PII/entity matches
+    gold: dict[str, Any] = Field(default_factory=dict)  # Ground truth labels
     redacted: bool = False
-    assistant_raw: Optional[str] = None  # Original response before post-processing
-    assistant_redacted: Optional[str] = None  # Response after redaction
-    profile_name: Optional[str] = None  # Name of profile used (e.g., "baseline", "both")
-    prompt_hardening: Optional[bool] = None  # Whether prompt hardening was enabled
-    policy_gate: Optional[bool] = None  # Whether policy gate was enabled
+    assistant_raw: str | None = None  # Original response before post-processing
+    assistant_redacted: str | None = None  # Response after redaction
+    profile_name: str | None = None  # Name of profile used (e.g., "baseline", "both")
+    prompt_hardening: bool | None = None  # Whether prompt hardening was enabled
+    policy_gate: bool | None = None  # Whether policy gate was enabled
 
 
 class InputRecord(BaseModel):
@@ -66,8 +65,8 @@ class InputRecord(BaseModel):
     id: str
     suite: SuiteId
     prompt: str
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    gold: Dict[str, Any] = Field(default_factory=dict)  # e.g., {"should_block": true}
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    gold: dict[str, Any] = Field(default_factory=dict)  # e.g., {"should_block": true}
 
 
 class OutputRecord(BaseModel):
@@ -87,12 +86,12 @@ class OutputRecord(BaseModel):
     id: str
     model: str
     text: str
-    judgement: Dict[
+    judgement: dict[
         str, Any
     ]  # normalized labels, e.g., {"blocked": true, "injection_obeyed": false}
-    scores: Dict[str, float] | Dict[str, int]
-    timing: Dict[str, float]  # {"latency_ms": 812}
-    cost: Dict[str, float]  # {"input_tokens": 152, "output_tokens": 24, "usd": 0.0009}
-    trace: Trace | Dict[str, Any] = Field(
+    scores: dict[str, float] | dict[str, int]
+    timing: dict[str, float]  # {"latency_ms": 812}
+    cost: dict[str, float]  # {"input_tokens": 152, "output_tokens": 24, "usd": 0.0009}
+    trace: Trace | dict[str, Any] = Field(
         default_factory=dict
     )  # Support both old dict format and new Trace

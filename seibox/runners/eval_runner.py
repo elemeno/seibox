@@ -1,30 +1,28 @@
 """Main evaluation runner for Safety Evals in a Box."""
 
-import hashlib
 import json
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import xxhash
 import yaml
 from rich.console import Console
 from rich.table import Table
 
-from seibox.adapters.openai import OpenAIAdapter
 from seibox.adapters.anthropic import AnthropicAdapter
-from seibox.adapters.vllm import VLLMAdapter
 from seibox.adapters.gemini import GeminiAdapter
+from seibox.adapters.openai import OpenAIAdapter
+from seibox.adapters.vllm import VLLMAdapter
+from seibox.mitigations import policy_gate, prompt_hardening
 from seibox.runners.batch import batch_execute
 from seibox.scoring import aggregate, benign, injection, pii
 from seibox.utils import cache, cost, io, schemas
-from seibox.utils.config_validation import validate_eval_config, ConfigValidationError
-from seibox.mitigations import policy_gate, prompt_hardening
+from seibox.utils.config_validation import ConfigValidationError, validate_eval_config
 
 console = Console()
 
 
-def load_config(config_path: str) -> Dict[str, Any]:
+def load_config(config_path: str) -> dict[str, Any]:
     """Load and validate configuration file with friendly error messages.
 
     Args:
@@ -43,7 +41,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             config = yaml.safe_load(f)
     except yaml.YAMLError as e:
         raise ValueError(f"Invalid YAML in config file: {e}")
@@ -61,7 +59,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
     return config
 
 
-def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputRecord]:
+def load_dataset(suite_name: str, config: dict[str, Any]) -> list[schemas.InputRecord]:
     """Load dataset for a specific suite.
 
     Args:
@@ -72,8 +70,9 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
         List of input records
     """
     import json
-    from seibox.utils.prompt_spec import PromptSpec
+
     from seibox.datasets.dsl import to_input_record
+    from seibox.utils.prompt_spec import PromptSpec
 
     dataset_config = config["datasets"].get(suite_name, {})
     sample_size = dataset_config.get("sampling", {}).get("n", 3)
@@ -114,7 +113,7 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
         if prompts_file.exists():
             # Load from prompts.jsonl with templates
             specs = []
-            with open(prompts_file, "r") as f:
+            with open(prompts_file) as f:
                 for line in f:
                     if not line.strip():
                         continue
@@ -149,7 +148,7 @@ def load_dataset(suite_name: str, config: Dict[str, Any]) -> List[schemas.InputR
     prompts_file = Path(__file__).parent.parent / "datasets" / suite_name / "prompts.jsonl"
     if prompts_file.exists():
         specs = []
-        with open(prompts_file, "r") as f:
+        with open(prompts_file) as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -263,10 +262,10 @@ def get_adapter(model_name: str) -> Any:
 
 def apply_mitigations_pre(
     prompt: str,
-    mitigation_id: Optional[str],
-    config: Dict[str, Any],
-    profile: Optional[schemas.ProfileConfig] = None,
-) -> tuple[str, Optional[str], Dict[str, Any]]:
+    mitigation_id: str | None,
+    config: dict[str, Any],
+    profile: schemas.ProfileConfig | None = None,
+) -> tuple[str, str | None, dict[str, Any]]:
     """Apply pre-processing mitigations.
 
     Args:
@@ -325,10 +324,10 @@ def apply_mitigations_pre(
 
 def apply_mitigations_post(
     text: str,
-    mitigation_id: Optional[str],
+    mitigation_id: str | None,
     prompt: str,
-    profile: Optional[schemas.ProfileConfig] = None,
-) -> tuple[str, Dict[str, Any]]:
+    profile: schemas.ProfileConfig | None = None,
+) -> tuple[str, dict[str, Any]]:
     """Apply post-processing mitigations.
 
     Args:
@@ -374,11 +373,11 @@ def apply_mitigations_post(
 def process_record(
     record: schemas.InputRecord,
     adapter: Any,
-    config: Dict[str, Any],
-    mitigation_id: Optional[str],
-    cost_table: Dict[str, Dict[str, float]],
-    profile: Optional[schemas.ProfileConfig] = None,
-    profile_name: Optional[str] = None,
+    config: dict[str, Any],
+    mitigation_id: str | None,
+    cost_table: dict[str, dict[str, float]],
+    profile: schemas.ProfileConfig | None = None,
+    profile_name: str | None = None,
 ) -> schemas.OutputRecord:
     """Process a single evaluation record.
 
@@ -432,9 +431,10 @@ def process_record(
     )
 
     # Create trace with conversation details
-    from datetime import datetime
     import uuid
-    from seibox.utils.schemas import Trace, Message, AdapterInfo
+    from datetime import datetime
+
+    from seibox.utils.schemas import AdapterInfo, Message, Trace
 
     # Get system prompt preview (first line or first 100 chars)
     system_preview = None
@@ -567,7 +567,7 @@ def process_record(
 def replay_eval(
     replay_path: str,
     out_path: str,
-    config_path: Optional[str] = None,
+    config_path: str | None = None,
 ) -> None:
     """Replay evaluation by recomputing scores from existing results.
 
@@ -576,7 +576,7 @@ def replay_eval(
         out_path: Path to save recomputed results
         config_path: Optional config path (used for cost table)
     """
-    console.print(f"[bold blue]Replaying evaluation[/bold blue]")
+    console.print("[bold blue]Replaying evaluation[/bold blue]")
     console.print(f"Source: {replay_path}")
     console.print(f"Output: {out_path}")
     console.print()
@@ -709,10 +709,10 @@ def run_eval(
     model_name: str,
     config_path: str,
     out_path: str,
-    mitigation_id: Optional[str] = None,
-    replay_path: Optional[str] = None,
-    profile_name: Optional[str] = None,
-    profile: Optional[schemas.ProfileConfig] = None,
+    mitigation_id: str | None = None,
+    replay_path: str | None = None,
+    profile_name: str | None = None,
+    profile: schemas.ProfileConfig | None = None,
 ) -> None:
     """Run evaluation on a suite with specified model and configuration.
 
@@ -735,7 +735,7 @@ def run_eval(
         if not profiles_path.exists():
             raise FileNotFoundError(f"Profiles configuration not found: {profiles_path}")
 
-        with open(profiles_path, "r") as f:
+        with open(profiles_path) as f:
             profiles_config = yaml.safe_load(f)
 
         if profile_name not in profiles_config.get("profiles", {}):
@@ -745,7 +745,7 @@ def run_eval(
         profile_data = profiles_config["profiles"][profile_name]
         profile = schemas.ProfileConfig(**profile_data)
 
-    console.print(f"[bold blue]Running evaluation[/bold blue]")
+    console.print("[bold blue]Running evaluation[/bold blue]")
     console.print(f"Suite: {suite_name}")
     console.print(f"Model: {model_name}")
     console.print(f"Config: {config_path}")
@@ -757,7 +757,7 @@ def run_eval(
     elif mitigation_id:
         console.print(f"Mitigation: {mitigation_id}")
     else:
-        console.print(f"Mitigation: None")
+        console.print("Mitigation: None")
     console.print()
 
     # Load configuration

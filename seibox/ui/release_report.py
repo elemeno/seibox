@@ -16,24 +16,20 @@ Usage:
 
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-
 import json
 import math
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-
 
 # ---------- Public API ----------
 
 
 def render_release_report(
-    matrix_parquet: str, 
-    golden_json: Optional[str], 
-    out_html: str,
-    drilldown_map: Optional[str] = None
+    matrix_parquet: str, golden_json: str | None, out_html: str, drilldown_map: str | None = None
 ) -> None:
     """
     Load data, compute derived views, render with Jinja2.
@@ -68,9 +64,13 @@ def render_release_report(
     heatmap_data = _build_heatmap_data(df, profiles, categories, models)
     profile_tables = _build_profile_tables(df, profiles)
     cost_table = _build_cost_table(df)
-    
+
     # Build drilldown links if map is available
-    drilldown_links = _build_drilldown_links(drilldown_data, models, categories, profiles) if drilldown_data else None
+    drilldown_links = (
+        _build_drilldown_links(drilldown_data, models, categories, profiles)
+        if drilldown_data
+        else None
+    )
 
     # Bundle context for the template
     context = {
@@ -96,7 +96,7 @@ def render_release_report(
 # ---------- Builders ----------
 
 
-def _build_metadata() -> Dict[str, Any]:
+def _build_metadata() -> dict[str, Any]:
     """Build metadata section."""
     return {
         "tag": "dev",
@@ -106,7 +106,7 @@ def _build_metadata() -> Dict[str, Any]:
     }
 
 
-def _build_summary(df: pd.DataFrame) -> Dict[str, Any]:
+def _build_summary(df: pd.DataFrame) -> dict[str, Any]:
     """Build summary cards data."""
 
     def best_metric(metric: str, higher_is_better: bool = True) -> tuple[str, float]:
@@ -139,8 +139,8 @@ def _build_summary(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 def _build_heatmap_data(
-    df: pd.DataFrame, profiles: List[str], categories: List[str], models: List[str]
-) -> Dict[str, Any]:
+    df: pd.DataFrame, profiles: list[str], categories: list[str], models: list[str]
+) -> dict[str, Any]:
     """Build heatmap data for all profiles."""
     heatmap_data = {}
 
@@ -189,7 +189,7 @@ def _build_heatmap_data(
     return heatmap_data
 
 
-def _build_profile_tables(df: pd.DataFrame, profiles: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+def _build_profile_tables(df: pd.DataFrame, profiles: list[str]) -> dict[str, list[dict[str, Any]]]:
     """Build detailed tables for each profile."""
     profile_tables = {}
 
@@ -235,7 +235,7 @@ def _build_profile_tables(df: pd.DataFrame, profiles: List[str]) -> Dict[str, Li
     return profile_tables
 
 
-def _build_cost_table(df: pd.DataFrame) -> List[Dict[str, Any]]:
+def _build_cost_table(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Build cost and token usage table."""
 
     # Group by model to aggregate costs and tokens
@@ -273,7 +273,7 @@ def _build_cost_table(df: pd.DataFrame) -> List[Dict[str, Any]]:
 # ---------- Template rendering ----------
 
 
-def _render_template(template_name: str, context: Dict[str, Any]) -> str:
+def _render_template(template_name: str, context: dict[str, Any]) -> str:
     """Render template with context."""
     # Template dir: seibox/ui/templates/
     base_dir = Path(__file__).parent
@@ -297,7 +297,7 @@ def _render_template(template_name: str, context: Dict[str, Any]) -> str:
 # ---------- Helpers ----------
 
 
-def _load_json(path: Optional[str]) -> Dict[str, Any]:
+def _load_json(path: str | None) -> dict[str, Any]:
     """Load JSON file safely."""
     if not path:
         return {}
@@ -308,19 +308,19 @@ def _load_json(path: Optional[str]) -> Dict[str, Any]:
 
 
 def _build_drilldown_links(
-    drilldown_data: List[Dict[str, Any]], 
-    models: List[str], 
-    categories: List[str], 
-    profiles: List[str]
-) -> Dict[str, Dict[str, Dict[str, List[Dict[str, Any]]]]]:
+    drilldown_data: list[dict[str, Any]],
+    models: list[str],
+    categories: list[str],
+    profiles: list[str],
+) -> dict[str, dict[str, dict[str, list[dict[str, Any]]]]]:
     """
     Build nested structure of drilldown links organized by model/category/profile.
-    
+
     Returns:
         Nested dict: model -> category -> profile -> list of sample links
     """
     links = {}
-    
+
     # Initialize structure
     for model in models:
         links[model] = {}
@@ -328,13 +328,13 @@ def _build_drilldown_links(
             links[model][category] = {}
             for profile in profiles:
                 links[model][category][profile] = []
-    
+
     # Group drilldown entries
     for entry in drilldown_data:
         model = entry.get("model", "unknown")
         category = entry.get("category", "unknown")
         profile = entry.get("profile", "unknown")
-        
+
         # Ensure the keys exist
         if model not in links:
             links[model] = {}
@@ -342,7 +342,7 @@ def _build_drilldown_links(
             links[model][category] = {}
         if profile not in links[model][category]:
             links[model][category][profile] = []
-        
+
         # Add link with metadata for filtering/sorting
         link_info = {
             "id": entry.get("id"),
@@ -350,10 +350,10 @@ def _build_drilldown_links(
             "blocked": entry.get("judgement", {}).get("blocked", False),
             "scores": entry.get("scores", {}),
             "cost": entry.get("cost", 0),
-            "latency_ms": entry.get("latency_ms", 0)
+            "latency_ms": entry.get("latency_ms", 0),
         }
         links[model][category][profile].append(link_info)
-    
+
     # Sort each list by blocked status (failures first) and then by ID
     for model in links:
         for category in links[model]:
@@ -361,25 +361,25 @@ def _build_drilldown_links(
                 links[model][category][profile].sort(
                     key=lambda x: (not x.get("blocked", False), x.get("id", ""))
                 )
-    
+
     return links
 
 
-def _format_pct(x: Optional[float]) -> str:
+def _format_pct(x: float | None) -> str:
     """Format value as percentage."""
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "—"
     return f"{100.0 * float(x):.1f}%"
 
 
-def _format_money(x: Optional[float]) -> str:
+def _format_money(x: float | None) -> str:
     """Format value as currency."""
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
         return "—"
     return f"${float(x):.4f}"
 
 
-def _format_ci(ci_low: Optional[float], ci_high: Optional[float]) -> str:
+def _format_ci(ci_low: float | None, ci_high: float | None) -> str:
     """Format confidence interval as ± range."""
     if ci_low is None or ci_high is None:
         return ""

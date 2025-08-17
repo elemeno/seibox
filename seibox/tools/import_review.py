@@ -2,10 +2,10 @@
 
 import csv
 import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
 import re
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from seibox.utils.io import write_jsonl
 
@@ -59,7 +59,7 @@ def extract_reviewer_initials(reviewer_field: str) -> str:
     return reviewer[:4].lower() if reviewer else "unk"
 
 
-def import_review(labels_path: str, out_path: str) -> Dict[str, Any]:
+def import_review(labels_path: str, out_path: str) -> dict[str, Any]:
     """Import human review labels and create normalized golden labels.
 
     Args:
@@ -82,14 +82,14 @@ def import_review(labels_path: str, out_path: str) -> Dict[str, Any]:
         raise ValueError(f"Unsupported file format: {labels_file.suffix}. Use .csv or .jsonl")
 
 
-def _import_csv_labels(labels_file: Path, out_path: str) -> Dict[str, Any]:
+def _import_csv_labels(labels_file: Path, out_path: str) -> dict[str, Any]:
     """Import labels from CSV format."""
 
     golden_labels = []
     rows_processed = 0
     rows_skipped = 0
 
-    with open(labels_file, "r", encoding="utf-8") as csvfile:
+    with open(labels_file, encoding="utf-8") as csvfile:
         # Detect delimiter
         sample = csvfile.read(1024)
         csvfile.seek(0)
@@ -170,7 +170,7 @@ def _import_csv_labels(labels_file: Path, out_path: str) -> Dict[str, Any]:
                     "id": record_id,
                     "human_label": {"blocked": blocked, "rationale": rationale},
                     "reviewer": reviewer,
-                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "ts": datetime.now(UTC).isoformat(),
                 }
 
                 # For calibration compatibility
@@ -203,14 +203,14 @@ def _import_csv_labels(labels_file: Path, out_path: str) -> Dict[str, Any]:
     }
 
 
-def _import_jsonl_labels(labels_file: Path, out_path: str) -> Dict[str, Any]:
+def _import_jsonl_labels(labels_file: Path, out_path: str) -> dict[str, Any]:
     """Import labels from JSONL format."""
 
     golden_labels = []
     rows_processed = 0
     rows_skipped = 0
 
-    with open(labels_file, "r", encoding="utf-8") as jsonlfile:
+    with open(labels_file, encoding="utf-8") as jsonlfile:
         for line_num, line in enumerate(jsonlfile, 1):
             if not line.strip():
                 continue
@@ -251,9 +251,7 @@ def _import_jsonl_labels(labels_file: Path, out_path: str) -> Dict[str, Any]:
                     reviewer = extract_reviewer_initials(data["labeler"])
 
                 # Use existing timestamp if available
-                timestamp = data.get(
-                    "ts", data.get("timestamp", datetime.now(timezone.utc).isoformat())
-                )
+                timestamp = data.get("ts", data.get("timestamp", datetime.now(UTC).isoformat()))
 
                 # Create normalized label for human review system
                 golden_label = {

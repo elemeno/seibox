@@ -1,24 +1,21 @@
 """Streamlit dashboard for Safety Evals in a Box."""
 
-import json
 from pathlib import Path
-from typing import List, Optional, Dict
 
 import pandas as pd
-import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 from plotly.subplots import make_subplots
 from streamlit import session_state as ss
 
-from seibox.utils.io import read_jsonl
 from seibox.scoring.aggregate import aggregate_metrics
+from seibox.utils.io import read_jsonl
 from seibox.utils.statistics import (
-    wilson_confidence_interval,
-    bootstrap_difference_ci,
     compute_stratified_metrics,
     find_flips_with_details,
     format_confidence_interval,
+    wilson_confidence_interval,
 )
 
 
@@ -170,7 +167,7 @@ def display_metric_cards_with_ci(df: pd.DataFrame, file_name: str):
     display_entity_severity_charts(metrics, file_name)
 
 
-def display_entity_severity_charts(metrics: Dict, file_name: str):
+def display_entity_severity_charts(metrics: dict, file_name: str):
     """Display entity-specific and severity-based PII analysis charts.
 
     Args:
@@ -588,7 +585,7 @@ def main():
                                     arrayminus=[val - ci_lower],
                                 ),
                                 mode="markers+lines",
-                                name=f"Safety Coverage",
+                                name="Safety Coverage",
                                 marker=dict(color=colors[i], size=10),
                                 showlegend=(i == 0),
                             ),
@@ -611,7 +608,7 @@ def main():
                                     arrayminus=[val - ci_lower],
                                 ),
                                 mode="markers+lines",
-                                name=f"Benign Pass Rate",
+                                name="Benign Pass Rate",
                                 marker=dict(color=colors[i], size=10),
                                 showlegend=(i == 0),
                             ),
@@ -634,7 +631,7 @@ def main():
                                     arrayminus=[val - ci_lower],
                                 ),
                                 mode="markers+lines",
-                                name=f"Injection Success",
+                                name="Injection Success",
                                 marker=dict(color=colors[i], size=10),
                                 showlegend=(i == 0),
                             ),

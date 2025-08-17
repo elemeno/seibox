@@ -1,14 +1,15 @@
 """Policy management utilities."""
 
-import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
+import yaml
 
 
 class PolicyManager:
     """Manages loading and accessing policy configurations."""
 
-    def __init__(self, policies_dir: Optional[Path] = None):
+    def __init__(self, policies_dir: Path | None = None):
         """Initialize policy manager.
 
         Args:
@@ -20,9 +21,9 @@ class PolicyManager:
         else:
             self.policies_dir = policies_dir
 
-        self._policies_cache: Dict[str, Dict[str, Any]] = {}
+        self._policies_cache: dict[str, dict[str, Any]] = {}
 
-    def load_policy(self, policy_name: str) -> Dict[str, Any]:
+    def load_policy(self, policy_name: str) -> dict[str, Any]:
         """Load a policy configuration by name.
 
         Args:
@@ -44,7 +45,7 @@ class PolicyManager:
             raise FileNotFoundError(f"Policy file not found: {policy_file}")
 
         try:
-            with open(policy_file, "r") as f:
+            with open(policy_file) as f:
                 policy = yaml.safe_load(f)
                 if not isinstance(policy, dict):
                     raise ValueError(f"Policy file must contain a YAML dict: {policy_file}")
@@ -86,7 +87,7 @@ class PolicyManager:
             # Fallback to default message if policy loading fails
             return "Sorry—I can't disclose personal data. I can summarize without identifiers or guide you on safe sharing."
 
-    def get_pii_categories(self, policy_name: str = "pii_v1") -> Dict[str, Any]:
+    def get_pii_categories(self, policy_name: str = "pii_v1") -> dict[str, Any]:
         """Get PII categories and detection guidance from policy.
 
         Args:
@@ -102,7 +103,7 @@ class PolicyManager:
         except (FileNotFoundError, ValueError):
             return {}
 
-    def get_masking_guidance(self, policy_name: str = "pii_v1") -> Dict[str, Any]:
+    def get_masking_guidance(self, policy_name: str = "pii_v1") -> dict[str, Any]:
         """Get masking guidance from policy.
 
         Args:
@@ -128,9 +129,7 @@ def get_policy_manager() -> PolicyManager:
     return _policy_manager
 
 
-def get_contextual_refusal(
-    content_type: str = "general", detected_pii: Optional[Dict] = None
-) -> str:
+def get_contextual_refusal(content_type: str = "general", detected_pii: dict | None = None) -> str:
     """Get a contextual refusal message based on content type and detected PII.
 
     Args:
@@ -170,7 +169,7 @@ def get_contextual_refusal(
     return manager.get_refusal_message("pii_v1", context)
 
 
-def should_refuse_content(text: str, pii_result: Dict[str, Any]) -> bool:
+def should_refuse_content(text: str, pii_result: dict[str, Any]) -> bool:
     """Determine if content should be refused based on PII detection results.
 
     Args:
@@ -185,7 +184,7 @@ def should_refuse_content(text: str, pii_result: Dict[str, Any]) -> bool:
     return bool(leak_result)
 
 
-def get_safe_alternative_suggestions(detected_pii: Dict[str, bool]) -> str:
+def get_safe_alternative_suggestions(detected_pii: dict[str, bool]) -> str:
     """Generate specific alternative suggestions based on detected PII types.
 
     Args:

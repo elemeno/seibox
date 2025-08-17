@@ -2,7 +2,8 @@
 
 import os
 import time
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -51,11 +52,11 @@ class AnthropicAdapter:
     def complete(
         self,
         *,
-        system: Optional[str],
+        system: str | None,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        extra: Optional[Mapping[str, Any]] = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> dict:
         """Generate a completion from Anthropic Claude.
 

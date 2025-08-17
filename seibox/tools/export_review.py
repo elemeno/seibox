@@ -3,8 +3,7 @@
 import csv
 import json
 from pathlib import Path
-from typing import List, Literal, Dict, Any, Optional
-from datetime import datetime
+from typing import Any, Literal
 
 from seibox.utils.io import read_jsonl
 from seibox.utils.schemas import OutputRecord
@@ -116,8 +115,8 @@ def get_current_label(record: OutputRecord) -> str:
 
 
 def export_review(
-    in_paths: List[str], out_path: str, format: Literal["csv", "jsonl"] = "csv"
-) -> Dict[str, Any]:
+    in_paths: list[str], out_path: str, format: Literal["csv", "jsonl"] = "csv"
+) -> dict[str, Any]:
     """Export evaluation results for human review.
 
     Args:
@@ -174,8 +173,8 @@ def export_review(
 
 
 def _export_csv(
-    records_with_files: List[tuple], out_path: Path, files_processed: int
-) -> Dict[str, Any]:
+    records_with_files: list[tuple], out_path: Path, files_processed: int
+) -> dict[str, Any]:
     """Export records to CSV format."""
 
     fieldnames = [
@@ -277,8 +276,8 @@ def _export_csv(
 
 
 def _export_jsonl(
-    records_with_files: List[tuple], out_path: Path, files_processed: int
-) -> Dict[str, Any]:
+    records_with_files: list[tuple], out_path: Path, files_processed: int
+) -> dict[str, Any]:
     """Export records to JSONL format."""
 
     rows_written = 0

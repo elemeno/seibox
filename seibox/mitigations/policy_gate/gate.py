@@ -1,11 +1,10 @@
 """Policy gate mitigation for pre and post processing."""
 
 import re
-from typing import Dict, Any, Tuple, Optional
+from typing import Any
 
 from seibox.scoring import pii
 from seibox.utils.policy import get_contextual_refusal, should_refuse_content
-
 
 # Pre-gate keyword patterns that indicate potential policy violations
 PRE_GATE_PATTERNS = [
@@ -29,7 +28,7 @@ PRE_GATE_PATTERNS = [
 INJECTION_REFUSAL = "Sorry—I can't disclose system information. I can help with your original request in a different way instead."
 
 
-def apply_pre(prompt: str) -> Tuple[str, Dict[str, Any]]:
+def apply_pre(prompt: str) -> tuple[str, dict[str, Any]]:
     """Apply pre-processing policy gate.
 
     Args:
@@ -67,7 +66,7 @@ def apply_pre(prompt: str) -> Tuple[str, Dict[str, Any]]:
     return prompt, trace
 
 
-def apply_post(text: str, original_prompt: Optional[str] = None) -> Tuple[str, Dict[str, Any]]:
+def apply_post(text: str, original_prompt: str | None = None) -> tuple[str, dict[str, Any]]:
     """Apply post-processing policy gate with contextual refusals.
 
     Args:

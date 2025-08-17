@@ -1,12 +1,11 @@
 """Calibration and alignment measurement between human and automated judgments."""
 
-from typing import Dict, List, Tuple, Any
 import json
 import os
-from collections import Counter
+from typing import Any
 
 
-def load_judge_labels(run_path: str) -> Dict[str, str]:
+def load_judge_labels(run_path: str) -> dict[str, str]:
     """Load automated judge labels from evaluation results.
 
     Args:
@@ -17,7 +16,7 @@ def load_judge_labels(run_path: str) -> Dict[str, str]:
     """
     judge_labels = {}
 
-    with open(run_path, "r") as f:
+    with open(run_path) as f:
         for line in f:
             record = json.loads(line.strip())
             record_id = record["id"]
@@ -80,7 +79,7 @@ def load_judge_labels(run_path: str) -> Dict[str, str]:
     return judge_labels
 
 
-def load_human_labels(labels_path: str) -> Dict[str, str]:
+def load_human_labels(labels_path: str) -> dict[str, str]:
     """Load human labels from labeling results.
 
     Args:
@@ -89,12 +88,12 @@ def load_human_labels(labels_path: str) -> Dict[str, str]:
     Returns:
         Dictionary mapping record IDs to human labels (Correct/Incorrect/Unsure)
     """
-    human_labels: Dict[str, str] = {}
+    human_labels: dict[str, str] = {}
 
     if not os.path.exists(labels_path):
         return human_labels
 
-    with open(labels_path, "r") as f:
+    with open(labels_path) as f:
         for line in f:
             label_data = json.loads(line.strip())
             record_id = label_data["record_id"]
@@ -104,7 +103,7 @@ def load_human_labels(labels_path: str) -> Dict[str, str]:
     return human_labels
 
 
-def compute_kappa(judge_labels: Dict[str, str], human_labels: Dict[str, str]) -> Dict[str, Any]:
+def compute_kappa(judge_labels: dict[str, str], human_labels: dict[str, str]) -> dict[str, Any]:
     """Compute Cohen's kappa between judge and human labels.
 
     Args:
@@ -190,7 +189,7 @@ def compute_kappa(judge_labels: Dict[str, str], human_labels: Dict[str, str]) ->
     }
 
 
-def _cohen_kappa(judge_labels: List[str], human_labels: List[str]) -> float:
+def _cohen_kappa(judge_labels: list[str], human_labels: list[str]) -> float:
     """Calculate Cohen's kappa coefficient.
 
     Args:
@@ -209,7 +208,7 @@ def _cohen_kappa(judge_labels: List[str], human_labels: List[str]) -> float:
 
     # Create contingency table
     categories = ["Correct", "Incorrect"]
-    table: Dict[str, Dict[str, int]] = {}
+    table: dict[str, dict[str, int]] = {}
     for cat1 in categories:
         table[cat1] = {}
         for cat2 in categories:

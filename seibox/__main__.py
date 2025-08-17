@@ -1,12 +1,12 @@
 """CLI entry point for Safety Evals in a Box."""
 
-import click
+from datetime import datetime
 from pathlib import Path
+
+import click
+import yaml
 from rich.console import Console
 from rich.table import Table
-import yaml
-import glob
-from datetime import datetime
 
 from seibox.runners.eval_runner import run_eval
 
@@ -22,7 +22,7 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
     if not models_config_path.exists():
         raise FileNotFoundError("configs/models.yaml not found")
 
-    with open(models_config_path, "r") as f:
+    with open(models_config_path) as f:
         models_config = yaml.safe_load(f)
 
     available_models = [m["name"] for m in models_config.get("models", [])]
@@ -123,7 +123,7 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
         )
 
     console.print(table)
-    console.print(f"\n[bold]Summary:[/bold]")
+    console.print("\n[bold]Summary:[/bold]")
     console.print(f"  Total tasks: {total_tasks}")
     console.print(f"  Estimated calls: {total_estimated_calls:,}")
     console.print(f"  Estimated cost: ${estimated_cost:.4f}")
@@ -165,7 +165,7 @@ def run_release(execution_plan: dict) -> None:
             original_config = None
             if limit_per_suite:
                 # Load and modify config temporarily
-                with open(config_file, "r") as f:
+                with open(config_file) as f:
                     config_data = yaml.safe_load(f)
 
                 # Apply limit to all datasets
@@ -288,11 +288,12 @@ def run(
         # Handle limit-per-suite for testing
         original_config = None
         if limit_per_suite:
-            import yaml
             from pathlib import Path
 
+            import yaml
+
             # Load and modify config temporarily
-            with open(config, "r") as f:
+            with open(config) as f:
                 config_data = yaml.safe_load(f)
 
             # Apply limit to all datasets
@@ -370,7 +371,7 @@ def dashboard(runs: str) -> None:
     dashboard_path = Path(__file__).parent / "ui" / "dashboard.py"
 
     try:
-        console.print(f"[bold blue]Launching dashboard...[/bold blue]")
+        console.print("[bold blue]Launching dashboard...[/bold blue]")
         console.print(f"Runs directory: {runs}")
         subprocess.run([sys.executable, "-m", "streamlit", "run", str(dashboard_path)], check=True)
     except subprocess.CalledProcessError as e:
@@ -403,7 +404,7 @@ def labeler(run: str) -> None:
     labeler_path = Path(__file__).parent / "ui" / "labeler.py"
 
     try:
-        console.print(f"[bold blue]Launching labeling interface...[/bold blue]")
+        console.print("[bold blue]Launching labeling interface...[/bold blue]")
         console.print(f"Run file: {run}")
         subprocess.run([sys.executable, "-m", "streamlit", "run", str(labeler_path)], check=True)
     except subprocess.CalledProcessError as e:
@@ -420,6 +421,7 @@ def labeler(run: str) -> None:
 def ablate(config: str, model: str, outdir: str) -> None:
     """Run ablation study: baseline vs pre-gate vs pre+post-gate."""
     from pathlib import Path
+
     from seibox.runners.ablate_runner import run_ablation_study
 
     try:
@@ -427,7 +429,7 @@ def ablate(config: str, model: str, outdir: str) -> None:
         outdir_path = Path(outdir)
         outdir_path.mkdir(parents=True, exist_ok=True)
 
-        console.print(f"[bold blue]Running ablation study...[/bold blue]")
+        console.print("[bold blue]Running ablation study...[/bold blue]")
         console.print(f"Config: {config}")
         console.print(f"Model: {model}")
         console.print(f"Output: {outdir}")
@@ -445,12 +447,14 @@ def ablate(config: str, model: str, outdir: str) -> None:
 def kappa(run: str, labels: str) -> None:
     """Measure agreement between automated judge and human labels using Cohen's kappa."""
     from pathlib import Path
+
     from rich.table import Table
+
     from seibox.scoring.calibration import (
-        load_judge_labels,
-        load_human_labels,
         compute_kappa,
         interpret_kappa,
+        load_human_labels,
+        load_judge_labels,
     )
 
     # Validate input files
@@ -493,7 +497,7 @@ def kappa(run: str, labels: str) -> None:
 
         # Counts table
         counts = result["agreement_counts"]
-        console.print(f"\nCounts:")
+        console.print("\nCounts:")
         console.print(f"  Agree: [green]{counts['agree']}[/green]")
         console.print(f"  Disagree: [red]{counts['disagree']}[/red]")
         console.print(f"  Human Unsure: [yellow]{counts['unsure']}[/yellow]")
@@ -502,7 +506,7 @@ def kappa(run: str, labels: str) -> None:
         # Confusion matrix
         cm = result["confusion_matrix"]
         if result["total_compared"] > 0:
-            console.print(f"\n[bold]Confusion Matrix[/bold]")
+            console.print("\n[bold]Confusion Matrix[/bold]")
 
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Judge → Human ↓", style="dim", width=20)
@@ -527,13 +531,13 @@ def kappa(run: str, labels: str) -> None:
 
         # Summary
         if result["total_compared"] == 0:
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] No comparable labels found")
+            console.print("\n[bold yellow]Warning:[/bold yellow] No comparable labels found")
         elif kappa_value is not None and kappa_value >= 0.6:
-            console.print(f"\n[bold green]✓[/bold green] Good agreement (κ ≥ 0.6)")
+            console.print("\n[bold green]✓[/bold green] Good agreement (κ ≥ 0.6)")
         elif kappa_value is not None and kappa_value >= 0.4:
-            console.print(f"\n[bold yellow]~[/bold yellow] Moderate agreement (0.4 ≤ κ < 0.6)")
+            console.print("\n[bold yellow]~[/bold yellow] Moderate agreement (0.4 ≤ κ < 0.6)")
         else:
-            console.print(f"\n[bold red]![/bold red] Poor agreement (κ < 0.4)")
+            console.print("\n[bold red]![/bold red] Poor agreement (κ < 0.4)")
 
     except Exception as e:
         console.print(f"[bold red]Error computing kappa:[/bold red] {e}")
@@ -580,14 +584,15 @@ def validate_prompts(path: str) -> None:
       poetry run seibox validate-prompts --path "seibox/datasets/*/prompts.jsonl"
     """
     import json
-    from pathlib import Path
-    from glob import glob
+
     from rich.table import Table
-    from seibox.utils.prompt_spec import PromptSpec, PromptSpecValidationResult
+
+    import glob as glob_module
     from seibox.datasets.dsl import validate_template_syntax
+    from seibox.utils.prompt_spec import PromptSpec, PromptSpecValidationResult
 
     # Find all matching files
-    files = glob(path, recursive=True)
+    files = glob_module.glob(path, recursive=True)
     if not files:
         console.print(f"[bold red]No files found matching:[/bold red] {path}")
         raise click.Abort()
@@ -599,7 +604,7 @@ def validate_prompts(path: str) -> None:
         console.print(f"\n[bold blue]Validating:[/bold blue] {file_path}")
 
         results = []
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             for line_num, line in enumerate(f, 1):
                 if not line.strip():
                     continue
@@ -665,7 +670,7 @@ def validate_prompts(path: str) -> None:
         console.print(table)
 
     # Summary
-    console.print(f"\n[bold]Summary:[/bold]")
+    console.print("\n[bold]Summary:[/bold]")
     console.print(f"  Valid prompts: [green]{total_valid}[/green]")
     console.print(f"  Invalid prompts: [red]{total_invalid}[/red]")
 
@@ -686,10 +691,12 @@ def render(path: str, n: int, out: str) -> None:
     """
     import json
     from pathlib import Path
+
     from rich.progress import track
-    from seibox.utils.prompt_spec import PromptSpec
+
     from seibox.datasets.dsl import to_input_record
     from seibox.utils.io import write_jsonl
+    from seibox.utils.prompt_spec import PromptSpec
 
     # Check input file
     input_path = Path(path)
@@ -699,7 +706,7 @@ def render(path: str, n: int, out: str) -> None:
 
     # Load and validate specs
     specs = []
-    with open(input_path, "r") as f:
+    with open(input_path) as f:
         for line in f:
             if not line.strip():
                 continue
@@ -761,21 +768,21 @@ def export_review(runs: str, out: str, output_format: str) -> None:
         # Handle multiple paths
         run_paths = [p.strip() for p in runs.split(",")]
 
-        console.print(f"[blue]Exporting results for human review...[/blue]")
+        console.print("[blue]Exporting results for human review...[/blue]")
         console.print(f"Input: {runs}")
         console.print(f"Output: {out}")
         console.print(f"Format: {output_format}")
 
         summary = export_func(run_paths, out, format=output_format)
 
-        console.print(f"\n[bold green]✓[/bold green] Export completed")
+        console.print("\n[bold green]✓[/bold green] Export completed")
         console.print(f"Files processed: {summary['files_processed']}")
         console.print(f"Records exported: {summary['records_exported']}")
         console.print(f"Output: {summary['output_path']}")
 
         if output_format == "csv":
             console.print(f"Columns: {summary['columns']}")
-            console.print(f"\n[dim]Open in spreadsheet app for human labeling[/dim]")
+            console.print("\n[dim]Open in spreadsheet app for human labeling[/dim]")
 
     except Exception as e:
         console.print(f"[bold red]Error exporting for review:[/bold red] {e}")
@@ -790,13 +797,13 @@ def import_review(labels: str, out: str) -> None:
     from seibox.tools.import_review import import_review as import_func
 
     try:
-        console.print(f"[blue]Importing human labels...[/blue]")
+        console.print("[blue]Importing human labels...[/blue]")
         console.print(f"Input: {labels}")
         console.print(f"Output: {out}")
 
         summary = import_func(labels, out)
 
-        console.print(f"\n[bold green]✓[/bold green] Import completed")
+        console.print("\n[bold green]✓[/bold green] Import completed")
         console.print(f"Format: {summary['format']}")
         console.print(f"Rows processed: {summary['rows_processed']}")
         if summary["rows_skipped"] > 0:
@@ -805,7 +812,7 @@ def import_review(labels: str, out: str) -> None:
         console.print(f"Output: {summary['output_path']}")
 
         if summary["format"] == "csv":
-            console.print(f"\n[dim]Used columns:[/dim]")
+            console.print("\n[dim]Used columns:[/dim]")
             console.print(f"  Label: {summary['label_column']}")
             if summary["reviewer_column"]:
                 console.print(f"  Reviewer: {summary['reviewer_column']}")
@@ -824,10 +831,10 @@ def import_review(labels: str, out: str) -> None:
 @click.option("--redact-raw", is_flag=True, help="Remove raw responses before post-processing")
 def sanitize_run(run: str, out: str, redact_system: bool, redact_raw: bool) -> None:
     """Sanitize evaluation results for public sharing by redacting sensitive information."""
-    import json
     from pathlib import Path
+
     from seibox.utils.io import read_jsonl, write_jsonl
-    from seibox.utils.schemas import OutputRecord, Trace, Message
+    from seibox.utils.schemas import OutputRecord, Trace
 
     try:
         # Load results
@@ -919,6 +926,7 @@ def packs() -> None:
 def packs_list() -> None:
     """List available prompt packs."""
     from rich.table import Table
+
     from seibox.packs import discover_packs
 
     packs = discover_packs()
@@ -970,7 +978,7 @@ def packs_import(pack_id: str, category: str, dest: str, no_dedupe: bool, previe
         if preview:
             console.print("\n[bold yellow]PREVIEW MODE - No files written[/bold yellow]")
 
-        console.print(f"\n[bold]Import Summary:[/bold]")
+        console.print("\n[bold]Import Summary:[/bold]")
         console.print(f"  Pack: {summary['pack_id']} v{summary['pack_version']}")
         console.print(f"  Category: {summary['category']}")
         console.print(f"  Destination: {summary['destination']}")
@@ -1002,7 +1010,6 @@ def packs_import(pack_id: str, category: str, dest: str, no_dedupe: bool, previe
 @click.option("--path", help="Path to pack directory")
 def packs_validate(pack_id: str, path: str) -> None:
     """Validate a pack's structure and contents."""
-    from pathlib import Path
     from seibox.packs import discover_packs
     from seibox.packs.loader import validate_pack
 
@@ -1089,11 +1096,11 @@ def release_cmd(
             return
 
         # Step 2: Execute release
-        console.print(f"\n[bold green]Executing release plan...[/bold green]")
+        console.print("\n[bold green]Executing release plan...[/bold green]")
         run_release(execution_plan)
 
         # Step 3: Aggregate to matrix
-        console.print(f"\n[bold blue]Aggregating results...[/bold blue]")
+        console.print("\n[bold blue]Aggregating results...[/bold blue]")
         from seibox.scoring.aggregate import aggregate_matrix
 
         aggregates_dir = out_path / "aggregates"
@@ -1111,7 +1118,7 @@ def release_cmd(
         # Step 4: Golden comparison (if requested)
         golden_compare_path = None
         if golden:
-            console.print(f"\n[bold blue]Running golden comparison...[/bold blue]")
+            console.print("\n[bold blue]Running golden comparison...[/bold blue]")
             from seibox.scoring.golden import compare_to_golden
 
             golden_result = compare_to_golden(matrix_df, golden)
@@ -1124,7 +1131,7 @@ def release_cmd(
             console.print(f"[green]✓[/green] Golden comparison saved to: {golden_compare_path}")
 
         # Step 5: Render HTML report
-        console.print(f"\n[bold blue]Rendering HTML report...[/bold blue]")
+        console.print("\n[bold blue]Rendering HTML report...[/bold blue]")
         from seibox.ui.release_report import render_release_report
 
         reports_dir = out_path / "reports"
@@ -1138,7 +1145,7 @@ def release_cmd(
         )
 
         console.print(f"[green]✓[/green] HTML report saved to: {report_path}")
-        console.print(f"\n[bold green]Release complete![/bold green]")
+        console.print("\n[bold green]Release complete![/bold green]")
         console.print(f"📁 Output directory: {out_path}")
         console.print(f"📊 HTML report: {report_path}")
 
@@ -1158,8 +1165,8 @@ def landscape(
     sample: str, out: str, plan: bool, models: str, categories: str, workers: int
 ) -> None:
     """Run evaluation matrix across all models and safety categories."""
-    from datetime import datetime
     from pathlib import Path
+
     from seibox.runners.matrix import MatrixOrchestrator
 
     try:
@@ -1189,11 +1196,11 @@ def landscape(
             return
 
         # Execute the plan
-        console.print(f"\n[bold green]Executing plan...[/bold green]")
+        console.print("\n[bold green]Executing plan...[/bold green]")
         completed_plan = orchestrator.execute(execution_plan, resume=True, max_workers=workers)
 
         # Generate reports after execution
-        console.print(f"\n[bold blue]Generating reports...[/bold blue]")
+        console.print("\n[bold blue]Generating reports...[/bold blue]")
 
         # Create reports directory
         reports_dir = Path("out/reports")
@@ -1228,7 +1235,7 @@ def landscape(
         except Exception as e:
             console.print(f"[yellow]Warning: Could not generate data bundle: {e}[/yellow]")
 
-        console.print(f"\n[bold green]Landscape evaluation complete![/bold green]")
+        console.print("\n[bold green]Landscape evaluation complete![/bold green]")
         console.print(f"Results: {out}")
         console.print(f"Reports: {reports_dir}")
 

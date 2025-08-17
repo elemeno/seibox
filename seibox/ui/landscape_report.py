@@ -2,15 +2,16 @@
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
+
 from jinja2 import Template
 
 from seibox.runners.matrix import Plan
 
 
-def load_results_data(plan: Plan) -> Dict[str, Any]:
+def load_results_data(plan: Plan) -> dict[str, Any]:
     """Load evaluation results from completed jobs."""
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
 
     for job in plan.jobs:
         if job.status != "completed":
@@ -21,7 +22,7 @@ def load_results_data(plan: Plan) -> Dict[str, Any]:
             continue
 
         try:
-            with open(summary_path, "r") as f:
+            with open(summary_path) as f:
                 summary = json.load(f)
 
             # Store results by model and category
@@ -36,13 +37,13 @@ def load_results_data(plan: Plan) -> Dict[str, Any]:
     return results
 
 
-def extract_metrics(results: Dict[str, Any]) -> Dict[str, Any]:
+def extract_metrics(results: dict[str, Any]) -> dict[str, Any]:
     """Extract key metrics from results for visualization."""
-    models_list: List[str] = list(results.keys())
-    categories_list: List[str] = []
-    heatmap_data: Dict[str, Dict[str, Dict[str, float]]] = {}
-    frontier_data: List[Dict[str, Any]] = []
-    error_jobs: List[str] = []
+    models_list: list[str] = list(results.keys())
+    categories_list: list[str] = []
+    heatmap_data: dict[str, dict[str, dict[str, float]]] = {}
+    frontier_data: list[dict[str, Any]] = []
+    error_jobs: list[str] = []
 
     metrics = {
         "models": models_list,
@@ -265,7 +266,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
 <body>
     <div class="container">
         <h1>🛡️ Safety Evaluation Landscape</h1>
-        
+
         <div class="summary-grid">
             <div class="summary-card">
                 <div class="summary-value">{{ metrics.models|length }}</div>
@@ -297,7 +298,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
             {% endfor %}
         </div>
         {% endif %}
-        
+
         <div class="filters">
             <div class="filter-group">
                 <label>View Mode:</label>
@@ -308,7 +309,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                 </select>
             </div>
         </div>
-        
+
         <h2>📊 Performance Heatmaps</h2>
         <div class="metric-selector">
             <button onclick="showHeatmap('safety_coverage')" class="active" id="btn-safety_coverage">Safety Coverage</button>
@@ -318,27 +319,27 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
             <button onclick="showHeatmap('p95_latency')" id="btn-p95_latency">P95 Latency</button>
         </div>
         <div id="heatmap" class="plot-container"></div>
-        
+
         <h2>🎯 Performance Frontier</h2>
         <p>Safety Coverage vs Benign Pass Rate. Bubble size = cost per 1K calls, color = P95 latency.</p>
         <div id="frontier" class="plot-container"></div>
-        
+
         <script>
             // Data from template
             const metricsData = {{ metrics|tojson }};
             let currentMetric = 'safety_coverage';
-            
+
             // Create heatmap
             function createHeatmap(metric) {
                 const data = metricsData.heatmap_data[metric];
                 const models = metricsData.models;
                 const categories = metricsData.categories;
-                
+
                 // Prepare data for heatmap
                 const z = [];
                 const x = categories;
                 const y = models;
-                
+
                 for (let model of models) {
                     const row = [];
                     for (let category of categories) {
@@ -347,7 +348,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                     }
                     z.push(row);
                 }
-                
+
                 // Configure color scale based on metric
                 let colorscale, title;
                 if (metric === 'injection_success_rate') {
@@ -366,7 +367,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                         title += ' (%)';
                     }
                 }
-                
+
                 const trace = {
                     z: z,
                     x: x,
@@ -380,7 +381,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                                    title + ': %{z}<br>' +
                                    '<extra></extra>'
                 };
-                
+
                 const layout = {
                     title: title,
                     xaxis: { title: 'Safety Categories', side: 'bottom' },
@@ -388,23 +389,23 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                     margin: { l: 150, r: 50, t: 80, b: 80 },
                     height: Math.max(400, models.length * 40 + 160)
                 };
-                
+
                 Plotly.newPlot('heatmap', [trace], layout, {responsive: true});
             }
-            
+
             function showHeatmap(metric) {
                 // Update button states
                 document.querySelectorAll('.metric-selector button').forEach(btn => btn.classList.remove('active'));
                 document.getElementById('btn-' + metric).classList.add('active');
-                
+
                 currentMetric = metric;
                 createHeatmap(metric);
             }
-            
+
             // Create frontier chart
             function createFrontier() {
                 const data = metricsData.frontier_data;
-                
+
                 const trace = {
                     x: data.map(d => d.safety_coverage),
                     y: data.map(d => d.benign_pass_rate),
@@ -426,7 +427,7 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                                    'P95 Latency: %{marker.color}ms<br>' +
                                    '<extra></extra>'
                 };
-                
+
                 const layout = {
                     title: 'Safety vs Helpfulness Frontier',
                     xaxis: { 
@@ -440,14 +441,14 @@ def generate_landscape_report(plan: Plan, output_path: str) -> None:
                     margin: { l: 60, r: 60, t: 80, b: 60 },
                     height: 500
                 };
-                
+
                 Plotly.newPlot('frontier', [trace], layout, {responsive: true});
             }
-            
+
             // Initialize charts
             createHeatmap('safety_coverage');
             createFrontier();
-            
+
             // View mode filtering (placeholder for future enhancement)
             document.getElementById('viewMode').addEventListener('change', function(e) {
                 // Could implement filtering logic here

@@ -1,8 +1,7 @@
 """Prompt injection detection and scoring module."""
 
 import re
-from typing import Dict, Any
-
+from typing import Any
 
 # Patterns for detecting injection attempts
 SYSTEM_PROMPT_PATTERNS = [
@@ -224,7 +223,7 @@ def detect_obfuscation(text: str) -> bool:
     return False
 
 
-def score_injection_violation(text: str) -> Dict[str, Any]:
+def score_injection_violation(text: str) -> dict[str, Any]:
     """Score text for prompt injection violations.
 
     Args:

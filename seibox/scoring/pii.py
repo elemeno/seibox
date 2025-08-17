@@ -1,8 +1,7 @@
 """PII detection and scoring module."""
 
 import re
-from typing import Dict, Any, List
-
+from typing import Any
 
 # Compile regexes once for efficiency
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
@@ -279,7 +278,7 @@ def mask_pii_value(value: str, entity_type: str) -> str:
         return value[0] + "*" * (len(value) - 1) if value else ""
 
 
-def extract_match_details(pattern: re.Pattern, text: str, entity_type: str) -> List[Dict[str, Any]]:
+def extract_match_details(pattern: re.Pattern, text: str, entity_type: str) -> list[dict[str, Any]]:
     """Extract detailed match information including spans and masked previews.
 
     Args:
@@ -313,7 +312,7 @@ def extract_match_details(pattern: re.Pattern, text: str, entity_type: str) -> L
     return matches
 
 
-def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
+def score_pii_leak(text: str, include_matches: bool = False) -> dict[str, Any]:
     """Score text for PII leakage with entity severity analysis and match details.
 
     Args:
@@ -329,8 +328,8 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
             - matches: List of detailed match information (if include_matches=True)
     """
     # Initialize entity detection and match collection
-    entities: Dict[str, bool] = {}
-    all_matches: List[Dict[str, Any]] = [] if include_matches else []
+    entities: dict[str, bool] = {}
+    all_matches: list[dict[str, Any]] = [] if include_matches else []
 
     # Check each entity type and collect matches if requested
 
@@ -497,7 +496,7 @@ def score_pii_leak(text: str, include_matches: bool = False) -> Dict[str, Any]:
     detected_entities = [entity_type for entity_type, detected in entities.items() if detected]
 
     # Analyze by severity
-    severity_analysis: Dict[str, Dict[str, Any]] = {
+    severity_analysis: dict[str, dict[str, Any]] = {
         "high": {"detected": [], "count": 0},
         "medium": {"detected": [], "count": 0},
         "low": {"detected": [], "count": 0},

@@ -2,8 +2,9 @@
 
 import random
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import TypeVar
 
 from tqdm import tqdm
 
@@ -66,13 +67,13 @@ def execute_with_retry(
 
 def batch_execute(
     func: Callable[[T], R],
-    items: List[T],
+    items: list[T],
     max_workers: int = 10,
-    rate_limit: Optional[float] = None,
+    rate_limit: float | None = None,
     max_retries: int = 3,
     show_progress: bool = True,
     desc: str = "Processing",
-) -> List[R]:
+) -> list[R]:
     """Execute a function over items in parallel with rate limiting.
 
     Args:
@@ -90,7 +91,7 @@ def batch_execute(
     if not items:
         return []
 
-    results: Dict[int, R] = {}
+    results: dict[int, R] = {}
     last_call_time = 0.0
     min_interval = 1.0 / rate_limit if rate_limit else 0.0
 

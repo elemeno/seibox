@@ -1,6 +1,7 @@
 """Base protocol for model adapters."""
 
-from typing import Any, Mapping, Optional, Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 
 class ModelAdapter(Protocol):
@@ -11,11 +12,11 @@ class ModelAdapter(Protocol):
     def complete(
         self,
         *,
-        system: Optional[str],
+        system: str | None,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        extra: Optional[Mapping[str, Any]] = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> dict:
         """Generate a completion from the model.
 

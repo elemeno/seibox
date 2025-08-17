@@ -1,11 +1,9 @@
 """Cost accounting utilities for token usage and pricing."""
 
-from typing import Any, Dict, Optional
-
 import yaml
 
 
-def load_cost_table(config_path: str = "configs/models.yaml") -> Dict[str, Dict[str, float]]:
+def load_cost_table(config_path: str = "configs/models.yaml") -> dict[str, dict[str, float]]:
     """Load the cost table from the models configuration.
 
     Args:
@@ -19,7 +17,7 @@ def load_cost_table(config_path: str = "configs/models.yaml") -> Dict[str, Dict[
         ValueError: If the config format is invalid
     """
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f)
     except FileNotFoundError:
         # Return default cost table if config doesn't exist
@@ -44,8 +42,8 @@ def compute_cost(
     model_name: str,
     input_tokens: int,
     output_tokens: int,
-    cost_table: Optional[Dict[str, Dict[str, float]]] = None,
-) -> Dict[str, float]:
+    cost_table: dict[str, dict[str, float]] | None = None,
+) -> dict[str, float]:
     """Compute the cost for a completion.
 
     Args:

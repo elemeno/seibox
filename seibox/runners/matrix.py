@@ -1,22 +1,20 @@
 """Matrix orchestrator for running evaluations across all models and categories."""
 
-import asyncio
 import hashlib
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-import yaml
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import RLock
+from typing import Any
 
+import yaml
 from rich.console import Console
+from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
-from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
 
-from seibox.runners.eval_runner import run_eval, load_config
-from seibox.utils.schemas import SuiteId
+from seibox.runners.eval_runner import load_config, run_eval
 
 console = Console()
 
@@ -35,16 +33,16 @@ class JobSpec:
     estimated_cost: float = 0.0
     estimated_duration: int = 0  # seconds
     status: str = "pending"  # pending, running, completed, failed
-    error: Optional[str] = None
-    actual_duration: Optional[int] = None
-    actual_cost: Optional[float] = None
+    error: str | None = None
+    actual_duration: int | None = None
+    actual_cost: float | None = None
 
 
 @dataclass
 class Plan:
     """Execution plan for matrix evaluation."""
 
-    jobs: List[JobSpec] = field(default_factory=list)
+    jobs: list[JobSpec] = field(default_factory=list)
     total_jobs: int = 0
     total_calls: int = 0
     total_cost: float = 0.0
@@ -60,11 +58,11 @@ class Plan:
         # Duration estimates account for parallelism
         self.total_duration = max(self.total_duration, job.estimated_duration)
 
-    def get_pending_jobs(self) -> List[JobSpec]:
+    def get_pending_jobs(self) -> list[JobSpec]:
         """Get jobs that haven't completed successfully."""
         return [job for job in self.jobs if job.status in ["pending", "failed"]]
 
-    def get_completed_jobs(self) -> List[JobSpec]:
+    def get_completed_jobs(self) -> list[JobSpec]:
         """Get successfully completed jobs."""
         return [job for job in self.jobs if job.status == "completed"]
 
@@ -77,9 +75,9 @@ class MatrixOrchestrator:
         self._rate_limiters = {}  # Model name -> rate limiter state
         self._lock = RLock()
 
-    def load_models(self, models_path: str = "configs/models.yaml") -> List[Dict[str, Any]]:
+    def load_models(self, models_path: str = "configs/models.yaml") -> list[dict[str, Any]]:
         """Load enabled models from configuration."""
-        with open(models_path, "r") as f:
+        with open(models_path) as f:
             config = yaml.safe_load(f)
 
         enabled_models = []
@@ -91,16 +89,16 @@ class MatrixOrchestrator:
 
     def load_categories(
         self, categories_path: str = "configs/categories.yaml"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Load evaluation categories from configuration."""
-        with open(categories_path, "r") as f:
+        with open(categories_path) as f:
             config = yaml.safe_load(f)
 
         return config.get("categories", [])
 
     def estimate_job_metrics(
-        self, model: Dict[str, Any], category: Dict[str, Any], sample_size: int
-    ) -> Tuple[int, float, int]:
+        self, model: dict[str, Any], category: dict[str, Any], sample_size: int
+    ) -> tuple[int, float, int]:
         """Estimate API calls, cost, and duration for a job.
 
         Args:
@@ -139,7 +137,7 @@ class MatrixOrchestrator:
     def create_config_hash(self, config_path: str, model: str, sample_size: int) -> str:
         """Create a hash for the configuration to detect changes."""
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config_content = f.read()
 
             # Include model name and sample size in hash
@@ -151,8 +149,8 @@ class MatrixOrchestrator:
 
     def plan(
         self,
-        models: Optional[List[str]] = None,
-        categories: Optional[List[str]] = None,
+        models: list[str] | None = None,
+        categories: list[str] | None = None,
         sample_mode: str = "SMOKE",
         outdir: str = "runs/landscape",
     ) -> Plan:
@@ -191,9 +189,7 @@ class MatrixOrchestrator:
                     sample_sizes[cat["id"]] = modes[sample_mode]
                 else:
                     # Fallback to defaults
-                    defaults = yaml.safe_load(open("configs/categories.yaml", "r")).get(
-                        "defaults", {}
-                    )
+                    defaults = yaml.safe_load(open("configs/categories.yaml")).get("defaults", {})
                     default_modes = defaults.get("sample_modes", {})
                     sample_sizes[cat["id"]] = default_modes.get(sample_mode, 10)
 
@@ -245,7 +241,7 @@ class MatrixOrchestrator:
             if output_path.exists() and summary_path.exists():
                 try:
                     # Check if config hash matches
-                    with open(summary_path, "r") as f:
+                    with open(summary_path) as f:
                         summary = json.load(f)
 
                     stored_hash = summary.get("metadata", {}).get("config_hash")
@@ -298,7 +294,7 @@ class MatrixOrchestrator:
                 # Load actual cost from summary if available
                 summary_path = Path(job.output_path).with_suffix(".summary.json")
                 if summary_path.exists():
-                    with open(summary_path, "r") as f:
+                    with open(summary_path) as f:
                         summary = json.load(f)
                     job.actual_cost = summary.get("cost", {}).get("total_usd", 0.0)
 
@@ -393,7 +389,7 @@ class MatrixOrchestrator:
         completed = len(plan.get_completed_jobs())
         failed = len([job for job in plan.jobs if job.status == "failed"])
 
-        console.print(f"\n[bold]Execution Summary:[/bold]")
+        console.print("\n[bold]Execution Summary:[/bold]")
         console.print(f"  Completed: [green]{completed}[/green]")
         console.print(f"  Failed: [red]{failed}[/red]")
         console.print(f"  Total: {len(plan.jobs)}")
@@ -436,7 +432,7 @@ class MatrixOrchestrator:
 
         # Summary
         total_duration_str = f"{plan.total_duration // 60}m {plan.total_duration % 60}s"
-        console.print(f"\n[bold]Plan Summary:[/bold]")
+        console.print("\n[bold]Plan Summary:[/bold]")
         console.print(f"  Total Jobs: {plan.total_jobs}")
         console.print(f"  Total API Calls: {plan.total_calls:,}")
         console.print(f"  Total Estimated Cost: [green]${plan.total_cost:.4f}[/green]")

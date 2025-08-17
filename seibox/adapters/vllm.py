@@ -1,9 +1,11 @@
 """vLLM adapter for local model inference via HTTP API."""
 
+import json
 import os
 import time
-import json
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
+
 import requests
 from dotenv import load_dotenv
 
@@ -40,11 +42,11 @@ class VLLMAdapter:
     def complete(
         self,
         *,
-        system: Optional[str],
+        system: str | None,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        extra: Optional[Mapping[str, Any]] = None,
+        extra: Mapping[str, Any] | None = None,
     ) -> dict:
         """Generate a completion from vLLM server.
 

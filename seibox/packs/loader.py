@@ -1,13 +1,14 @@
 """Pack loader and registry for portable prompt bundles."""
 
 import json
-import yaml
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
+import yaml
+
+from seibox.utils.io import write_jsonl
 from seibox.utils.prompt_spec import PromptSpec
-from seibox.utils.io import read_jsonl, write_jsonl
 
 
 @dataclass
@@ -15,10 +16,10 @@ class PackCategory:
     """Category definition within a pack."""
 
     id: str
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     prompts: str = "prompts.jsonl"
-    tags: List[str] = None
+    tags: list[str] = None
 
     def __post_init__(self):
         if self.tags is None:
@@ -32,11 +33,11 @@ class PackMeta:
     id: str
     version: str
     path: Path
-    name: Optional[str] = None
-    author: Optional[str] = None
-    description: Optional[str] = None
-    license: Optional[str] = None
-    categories: List[PackCategory] = None
+    name: str | None = None
+    author: str | None = None
+    description: str | None = None
+    license: str | None = None
+    categories: list[PackCategory] = None
 
     def __post_init__(self):
         if self.categories is None:
@@ -52,12 +53,12 @@ class PackMeta:
         for category in self.categories:
             prompts_file = self.path / category.prompts
             if prompts_file.exists():
-                with open(prompts_file, "r") as f:
+                with open(prompts_file) as f:
                     count += sum(1 for line in f if line.strip())
         return count
 
 
-def discover_packs(root: str = "packs/") -> List[PackMeta]:
+def discover_packs(root: str = "packs/") -> list[PackMeta]:
     """Discover all available packs in the root directory.
 
     Args:
@@ -83,7 +84,7 @@ def discover_packs(root: str = "packs/") -> List[PackMeta]:
 
         try:
             # Load pack metadata
-            with open(pack_yaml, "r") as f:
+            with open(pack_yaml) as f:
                 data = yaml.safe_load(f)
 
             # Create PackMeta object
@@ -107,7 +108,7 @@ def discover_packs(root: str = "packs/") -> List[PackMeta]:
     return sorted(packs, key=lambda p: p.id)
 
 
-def load_pack(path: str, category: Optional[str] = None) -> List[PromptSpec]:
+def load_pack(path: str, category: str | None = None) -> list[PromptSpec]:
     """Load prompts from a pack.
 
     Args:
@@ -131,7 +132,7 @@ def load_pack(path: str, category: Optional[str] = None) -> List[PromptSpec]:
         raise FileNotFoundError(f"No pack.yaml found in {pack_dir}")
 
     # Load pack metadata
-    with open(pack_yaml, "r") as f:
+    with open(pack_yaml) as f:
         pack_data = yaml.safe_load(f)
 
     prompts = []
@@ -149,7 +150,7 @@ def load_pack(path: str, category: Optional[str] = None) -> List[PromptSpec]:
             continue
 
         # Parse prompts
-        with open(prompts_file, "r") as f:
+        with open(prompts_file) as f:
             for line_num, line in enumerate(f, 1):
                 if not line.strip():
                     continue
@@ -177,7 +178,7 @@ def load_pack(path: str, category: Optional[str] = None) -> List[PromptSpec]:
 
 def import_pack(
     pack_id: str, category: str, dest: str, dedupe: bool = True, preview: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Import prompts from a pack into a dataset directory.
 
     Args:
@@ -215,7 +216,7 @@ def import_pack(
     existing_ids = set()
 
     if dest_file.exists():
-        with open(dest_file, "r") as f:
+        with open(dest_file) as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -271,7 +272,7 @@ def import_pack(
     return summary
 
 
-def validate_pack(pack_path: str) -> Dict[str, Any]:
+def validate_pack(pack_path: str) -> dict[str, Any]:
     """Validate a pack's structure and contents.
 
     Args:
@@ -293,7 +294,7 @@ def validate_pack(pack_path: str) -> Dict[str, Any]:
 
     # Load and validate pack.yaml
     try:
-        with open(pack_yaml, "r") as f:
+        with open(pack_yaml) as f:
             pack_data = yaml.safe_load(f)
     except Exception as e:
         results["valid"] = False
@@ -323,7 +324,7 @@ def validate_pack(pack_path: str) -> Dict[str, Any]:
 
         # Validate prompts
         cat_prompts = 0
-        with open(prompts_file, "r") as f:
+        with open(prompts_file) as f:
             for line_num, line in enumerate(f, 1):
                 if not line.strip():
                     continue

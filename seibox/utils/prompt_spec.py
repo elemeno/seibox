@@ -1,6 +1,7 @@
 """Prompt specification schema for non-engineer authoring."""
 
-from typing import Dict, Any, Optional, Literal
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -16,26 +17,26 @@ class PromptSpec(BaseModel):
         description="Category of the prompt"
     )
     template: str = Field(description="Template string with {{variables}} for rendering")
-    gold: Dict[str, Any] = Field(
+    gold: dict[str, Any] = Field(
         default_factory=dict, description="Expected outputs/labels for this prompt"
     )
-    vars: Dict[str, Any] = Field(
+    vars: dict[str, Any] = Field(
         default_factory=dict, description="Variables to use when rendering the template"
     )
 
     # Optional documentation fields for readability
-    given: Optional[str] = Field(
+    given: str | None = Field(
         default=None, description="Given/context description (for documentation)"
     )
-    when: Optional[str] = Field(
+    when: str | None = Field(
         default=None, description="When/action description (for documentation)"
     )
-    then: Optional[str] = Field(
+    then: str | None = Field(
         default=None, description="Then/expected outcome description (for documentation)"
     )
 
     # Optional metadata
-    author: Optional[str] = Field(default=None, description="Author of this prompt")
+    author: str | None = Field(default=None, description="Author of this prompt")
     tags: list[str] = Field(default_factory=list, description="Tags for filtering/grouping")
 
     @field_validator("id")
@@ -71,8 +72,8 @@ class PromptSpecValidationResult(BaseModel):
 
     valid: bool
     line_number: int
-    spec: Optional[PromptSpec] = None
-    error: Optional[str] = None
+    spec: PromptSpec | None = None
+    error: str | None = None
 
     @property
     def status_emoji(self) -> str:

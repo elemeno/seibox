@@ -1,12 +1,13 @@
 """Tests for profile functionality."""
 
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 import yaml
-from pathlib import Path
-from unittest.mock import Mock, patch
 
-from seibox.utils.schemas import ProfileConfig, InputRecord
-from seibox.runners.eval_runner import apply_mitigations_pre, apply_mitigations_post
+from seibox.runners.eval_runner import apply_mitigations_post, apply_mitigations_pre
+from seibox.utils.schemas import ProfileConfig
 
 
 def test_profile_config():
@@ -27,7 +28,7 @@ def test_profiles_yaml_loading():
     profiles_path = Path("configs/profiles.yaml")
     assert profiles_path.exists(), "profiles.yaml should exist"
 
-    with open(profiles_path, "r") as f:
+    with open(profiles_path) as f:
         profiles_config = yaml.safe_load(f)
 
     # Check all expected profiles exist

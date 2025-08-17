@@ -1,14 +1,13 @@
 """Configuration validation with friendly error messages."""
 
-from typing import Dict, Any, List, Optional, Tuple
-from pathlib import Path
 import difflib
+from typing import Any
 
 
 class ConfigValidationError(Exception):
     """Custom exception for configuration errors with helpful suggestions."""
 
-    def __init__(self, message: str, path: str = "", suggestions: Optional[List[str]] = None):
+    def __init__(self, message: str, path: str = "", suggestions: list[str] | None = None):
         """Initialize config validation error.
 
         Args:
@@ -20,7 +19,7 @@ class ConfigValidationError(Exception):
         self.suggestions = suggestions or []
 
         # Build detailed error message
-        full_message = f"\n❌ Configuration Error"
+        full_message = "\n❌ Configuration Error"
         if path:
             full_message += f" at '{path}'"
         full_message += f":\n   {message}"
@@ -33,7 +32,7 @@ class ConfigValidationError(Exception):
         super().__init__(full_message)
 
 
-def find_similar_keys(invalid_key: str, valid_keys: List[str], threshold: float = 0.6) -> List[str]:
+def find_similar_keys(invalid_key: str, valid_keys: list[str], threshold: float = 0.6) -> list[str]:
     """Find similar keys using fuzzy matching.
 
     Args:
@@ -55,7 +54,7 @@ def find_similar_keys(invalid_key: str, valid_keys: List[str], threshold: float 
     return [key for key, _ in matches]
 
 
-def validate_config_keys(config: Dict[str, Any], schema: Dict[str, Any], path: str = "") -> None:
+def validate_config_keys(config: dict[str, Any], schema: dict[str, Any], path: str = "") -> None:
     """Recursively validate configuration keys against a schema.
 
     Args:
@@ -92,7 +91,7 @@ def validate_config_keys(config: Dict[str, Any], schema: Dict[str, Any], path: s
             validate_config_keys(value, schema[key], current_path)
 
 
-def validate_required_keys(config: Dict[str, Any], required: List[str], path: str = "") -> None:
+def validate_required_keys(config: dict[str, Any], required: list[str], path: str = "") -> None:
     """Check that all required keys are present.
 
     Args:
@@ -136,7 +135,7 @@ def validate_value_type(value: Any, expected_type: type, key: str, path: str = "
         )
 
 
-def validate_eval_config(config: Dict[str, Any]) -> None:
+def validate_eval_config(config: dict[str, Any]) -> None:
     """Validate evaluation configuration with helpful error messages.
 
     Args:
