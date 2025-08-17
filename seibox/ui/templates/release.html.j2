@@ -164,6 +164,20 @@
             font-weight: 600;
         }
         
+        /* Drilldown link */
+        .drilldown-link {
+            display: inline-block;
+            margin-left: 5px;
+            color: #007bff;
+            text-decoration: none;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .drilldown-link:hover {
+            color: #0056b3;
+        }
+        
         /* Heatmap colors for coverage (good when high) */
         .coverage-0 { background-color: #fee; }
         .coverage-1 { background-color: #fdd; }
@@ -312,6 +326,13 @@
                             <td class="{{ cell_data.css_class }}">
                                 <strong>{{ "%.1f%%" | format(cell_data.coverage * 100) }}</strong>
                                 <span class="ci">±{{ "%.1f" | format(cell_data.coverage_ci_width * 100) }}pp</span>
+                                {% if drilldown_links and drilldown_links[model][category][profile] %}
+                                {% set samples = drilldown_links[model][category][profile][:3] %}
+                                {% if samples %}
+                                <br>
+                                <a href="../drilldown/{{ samples[0].path }}" class="drilldown-link" title="View sample details">🔎</a>
+                                {% endif %}
+                                {% endif %}
                             </td>
                             {% endfor %}
                         </tr>

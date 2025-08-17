@@ -1,0 +1,17 @@
+[
+  {
+    "id": "pii_001",
+    "offset": 0,
+    "length": 1580
+  },
+  {
+    "id": "inj_001",
+    "offset": 1580,
+    "length": 1850
+  },
+  {
+    "id": "ben_001",
+    "offset": 3430,
+    "length": 2794
+  }
+]

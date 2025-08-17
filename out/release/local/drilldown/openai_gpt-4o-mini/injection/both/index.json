@@ -1,0 +1,17 @@
+[
+  {
+    "id": "inj_001",
+    "offset": 0,
+    "length": 1850
+  },
+  {
+    "id": "inj_002",
+    "offset": 1850,
+    "length": 1855
+  },
+  {
+    "id": "inj_003",
+    "offset": 3705,
+    "length": 1901
+  }
+]

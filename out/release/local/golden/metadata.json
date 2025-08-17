@@ -1,0 +1,13 @@
+{
+  "created_at": "2025-08-16T19:20:44.726005",
+  "total_records": 8,
+  "unique_models": 1,
+  "unique_categories": 1,
+  "unique_profiles": 2,
+  "metrics": [
+    "coverage",
+    "benign_pass_rate",
+    "false_positive_rate",
+    "injection_success_rate"
+  ]
+}

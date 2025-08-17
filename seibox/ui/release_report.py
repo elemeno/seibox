@@ -29,7 +29,12 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 # ---------- Public API ----------
 
 
-def render_release_report(matrix_parquet: str, golden_json: Optional[str], out_html: str) -> None:
+def render_release_report(
+    matrix_parquet: str, 
+    golden_json: Optional[str], 
+    out_html: str,
+    drilldown_map: Optional[str] = None
+) -> None:
     """
     Load data, compute derived views, render with Jinja2.
 
@@ -37,6 +42,7 @@ def render_release_report(matrix_parquet: str, golden_json: Optional[str], out_h
         matrix_parquet: Path to aggregates/matrix.parquet produced by the release runner.
         golden_json: Optional path to aggregates/golden_compare.json.
         out_html: Destination HTML file path.
+        drilldown_map: Optional path to drilldown_map.json for linking to detailed views.
 
     Side effects:
         Writes a single HTML file at out_html.
@@ -51,6 +57,7 @@ def render_release_report(matrix_parquet: str, golden_json: Optional[str], out_h
         raise ValueError("matrix parquet is empty; nothing to render")
 
     golden_data = _load_json(golden_json) if golden_json else None
+    drilldown_data = _load_json(drilldown_map) if drilldown_map else None
 
     # Build report data structures
     metadata = _build_metadata()
@@ -61,6 +68,9 @@ def render_release_report(matrix_parquet: str, golden_json: Optional[str], out_h
     heatmap_data = _build_heatmap_data(df, profiles, categories, models)
     profile_tables = _build_profile_tables(df, profiles)
     cost_table = _build_cost_table(df)
+    
+    # Build drilldown links if map is available
+    drilldown_links = _build_drilldown_links(drilldown_data, models, categories, profiles) if drilldown_data else None
 
     # Bundle context for the template
     context = {
@@ -73,6 +83,7 @@ def render_release_report(matrix_parquet: str, golden_json: Optional[str], out_h
         "profile_tables": profile_tables,
         "cost_table": cost_table,
         "golden_data": golden_data,
+        "drilldown_links": drilldown_links,
     }
 
     html = _render_template("release.html.j2", context)
@@ -294,6 +305,64 @@ def _load_json(path: Optional[str]) -> Dict[str, Any]:
     if not p.exists():
         return {}
     return json.loads(p.read_text(encoding="utf-8"))
+
+
+def _build_drilldown_links(
+    drilldown_data: List[Dict[str, Any]], 
+    models: List[str], 
+    categories: List[str], 
+    profiles: List[str]
+) -> Dict[str, Dict[str, Dict[str, List[Dict[str, Any]]]]]:
+    """
+    Build nested structure of drilldown links organized by model/category/profile.
+    
+    Returns:
+        Nested dict: model -> category -> profile -> list of sample links
+    """
+    links = {}
+    
+    # Initialize structure
+    for model in models:
+        links[model] = {}
+        for category in categories:
+            links[model][category] = {}
+            for profile in profiles:
+                links[model][category][profile] = []
+    
+    # Group drilldown entries
+    for entry in drilldown_data:
+        model = entry.get("model", "unknown")
+        category = entry.get("category", "unknown")
+        profile = entry.get("profile", "unknown")
+        
+        # Ensure the keys exist
+        if model not in links:
+            links[model] = {}
+        if category not in links[model]:
+            links[model][category] = {}
+        if profile not in links[model][category]:
+            links[model][category][profile] = []
+        
+        # Add link with metadata for filtering/sorting
+        link_info = {
+            "id": entry.get("id"),
+            "path": entry.get("path"),
+            "blocked": entry.get("judgement", {}).get("blocked", False),
+            "scores": entry.get("scores", {}),
+            "cost": entry.get("cost", 0),
+            "latency_ms": entry.get("latency_ms", 0)
+        }
+        links[model][category][profile].append(link_info)
+    
+    # Sort each list by blocked status (failures first) and then by ID
+    for model in links:
+        for category in links[model]:
+            for profile in links[model][category]:
+                links[model][category][profile].sort(
+                    key=lambda x: (not x.get("blocked", False), x.get("id", ""))
+                )
+    
+    return links
 
 
 def _format_pct(x: Optional[float]) -> str:
