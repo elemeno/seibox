@@ -438,4 +438,4 @@ poetry run seibox release --out out/release/test --sample SMOKE \
 
 ## License
 
-MIT
+MIT# Pre-commit hooks are now configured
