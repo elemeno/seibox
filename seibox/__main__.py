@@ -583,11 +583,11 @@ def validate_prompts(path: str) -> None:
       poetry run seibox validate-prompts --path prompts.jsonl
       poetry run seibox validate-prompts --path "seibox/datasets/*/prompts.jsonl"
     """
+    import glob as glob_module
     import json
 
     from rich.table import Table
 
-    import glob as glob_module
     from seibox.datasets.dsl import validate_template_syntax
     from seibox.utils.prompt_spec import PromptSpec, PromptSpecValidationResult
 

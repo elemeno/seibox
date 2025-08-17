@@ -35,11 +35,11 @@ ZWSP = "\u200b"
 
 # RTL override and bidirectional characters for obfuscation
 RTL_OVERRIDE_CHARS = [
-    "\u202E",  # Right-to-Left Override (RLO)
-    "\u202D",  # Left-to-Right Override (LRO)
-    "\u061C",  # Arabic Letter Mark
-    "\u200F",  # Right-to-Left Mark
-    "\u200E",  # Left-to-Right Mark
+    "\u202e",  # Right-to-Left Override (RLO)
+    "\u202d",  # Left-to-Right Override (LRO)
+    "\u061c",  # Arabic Letter Mark
+    "\u200f",  # Right-to-Left Mark
+    "\u200e",  # Left-to-Right Mark
     "\u2066",  # Left-to-Right Isolate
     "\u2067",  # Right-to-Left Isolate
     "\u2068",  # First Strong Isolate

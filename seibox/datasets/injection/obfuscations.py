@@ -12,7 +12,7 @@ def generate_rlo_rtl_obfuscated(text: str) -> str:
     Returns:
         Text with RTL override characters inserted
     """
-    rtl_chars = ["\u202E", "\u202D", "\u061C", "\u200F", "\u200E"]
+    rtl_chars = ["\u202e", "\u202d", "\u061c", "\u200f", "\u200e"]
 
     # Insert random RTL characters at word boundaries
     words = text.split()
