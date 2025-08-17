@@ -1,0 +1,36 @@
+# Pre-commit hooks for Safety Evals in a Box
+# See https://pre-commit.com for more information
+
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: Black Python formatter
+        entry: poetry run black
+        language: system
+        args: [--line-length=100]
+        files: \.(py)$
+        pass_filenames: true
+        types: [python]
+        description: "Format Python code with Black"
+        
+      - id: ruff-check
+        name: Ruff linter (check only)
+        entry: poetry run ruff check
+        language: system
+        args: [--fix]
+        files: \.(py)$
+        pass_filenames: true
+        types: [python]
+        description: "Lint Python code with Ruff (auto-fix where possible)"
+        
+      - id: pytest
+        name: Run test suite
+        entry: poetry run pytest
+        language: system
+        args: [-q, --maxfail=5]
+        files: \.(py)$
+        pass_filenames: false
+        types: [python]
+        description: "Run Python test suite"
+        stages: [pre-commit]
