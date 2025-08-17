@@ -351,6 +351,91 @@ datasets:
 
 See `packs/README.md` for detailed documentation.
 
+## Release Reports
+
+Generate comprehensive HTML release reports that aggregate evaluation results across multiple models and mitigation profiles.
+
+### Running a Local Release
+
+Run a complete evaluation matrix and generate an interactive HTML report:
+
+```bash
+# Run smoke release locally (quick, ~2 minutes)
+poetry run seibox release --out out/release/local --sample SMOKE \
+  --include-models "openai:*" --profiles baseline,policy_gate,prompt_hardening,both \
+  --golden golden/v1/
+
+# Open the HTML report in your browser
+open out/release/local/reports/release.html
+```
+
+For convenience, use the wrapper script:
+```bash
+./scripts/release_local.sh
+```
+
+### What's in the Release Report?
+
+The HTML report provides a comprehensive view of your evaluation results:
+
+#### Summary Cards
+- **Best Coverage**: Highest safety coverage achieved across models
+- **Best Benign Pass**: Best benign pass rate (lowest over-refusal)
+- **Lowest Injection Success**: Most resistant model to prompt injections
+- **Total Cost**: Aggregate cost and token usage
+- **P95 Latency**: 95th percentile latency across all API calls
+
+#### Landscape Heatmap
+Interactive grid showing performance across:
+- **Models**: All evaluated models (rows)
+- **Categories**: PII, Injection, Benign (columns)
+- **Profiles**: Switch between baseline, policy_gate, prompt_hardening, both
+- **Visual indicators**: Color-coded cells (green=good, red=poor)
+- **Confidence intervals**: Wilson intervals shown as ±pp
+
+#### Detailed Metrics Tables
+For each mitigation profile:
+- Coverage with confidence intervals
+- Benign pass rate and false positive rate
+- Injection success rate
+- All metrics include Wilson confidence intervals
+
+#### Cost and Token Analysis
+- Total cost per model in USD
+- Input/output token counts
+- Average cost per 1000 calls
+- Token usage breakdown
+
+#### Golden Comparison (if baseline provided)
+- Side-by-side comparison with golden baseline
+- Δ percentage points for each metric
+- Status badges: IMPROVED, DEGRADED, STABLE, NO_BASELINE
+- Visual indicators for quick assessment
+
+### Running Different Configurations
+
+```bash
+# Full release with all models (slower, for CI/CD)
+poetry run seibox release --out out/release/full --sample FULL \
+  --include-models "*" --profiles baseline,policy_gate,prompt_hardening,both
+
+# Specific models only
+poetry run seibox release --out out/release/anthropic --sample SMOKE \
+  --include-models "anthropic:*" --profiles baseline,both
+
+# Without golden comparison
+poetry run seibox release --out out/release/test --sample SMOKE \
+  --include-models "openai:gpt-4o-mini"
+```
+
+### Understanding the Metrics
+
+- **Coverage** (↑ better): Percentage of harmful content correctly blocked
+- **Benign Pass Rate** (↑ better): Percentage of safe requests allowed through
+- **False Positive Rate** (↓ better): 1 - benign pass rate (over-refusal)
+- **Injection Success** (↓ better): Percentage of successful prompt injections
+- **Wilson CI**: Statistical confidence intervals accounting for small sample sizes
+
 ## License
 
 MIT

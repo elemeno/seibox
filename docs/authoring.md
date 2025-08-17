@@ -347,3 +347,13 @@ Add extra information:
 ### Pack Integration
 
 For teams sharing prompts, consider creating [prompt packs](../packs/README.md) for easy distribution and import.
+
+## Next Steps
+
+Once you've created your evaluation prompts:
+
+1. **Run evaluations** using your prompts - see the [Quick Start](../README.md#quick-start) guide
+2. **Generate release reports** to visualize results - see the [Release Reports](../README.md#release-reports) section
+3. **Export for human review** if needed - see the [Human Review](../README.md#human-review-and-labeling) workflow
+
+The release reports provide comprehensive HTML visualizations of your evaluation results, including heatmaps, confidence intervals, and golden baseline comparisons.
