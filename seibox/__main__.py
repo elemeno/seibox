@@ -16,17 +16,17 @@ console = Console()
 # Release orchestration functions
 def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles: list) -> dict:
     """Create a release execution plan."""
-    
+
     # Load available models from config
     models_config_path = Path("configs/models.yaml")
     if not models_config_path.exists():
         raise FileNotFoundError("configs/models.yaml not found")
-    
+
     with open(models_config_path, "r") as f:
         models_config = yaml.safe_load(f)
-    
+
     available_models = [m["name"] for m in models_config.get("models", [])]
-    
+
     # Filter models based on patterns
     if "*" in model_patterns:
         selected_models = available_models
@@ -36,6 +36,7 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
             if "*" in pattern:
                 # Glob pattern matching
                 import fnmatch
+
                 matched = [m for m in available_models if fnmatch.fnmatch(m, pattern)]
                 selected_models.extend(matched)
             elif pattern in available_models:
@@ -44,16 +45,16 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
             else:
                 # Partial match
                 selected_models.extend([m for m in available_models if pattern in m])
-    
+
     # Remove duplicates
     selected_models = list(set(selected_models))
-    
+
     if not selected_models:
         raise ValueError(f"No models found matching patterns: {model_patterns}")
-    
+
     # Define categories (based on existing suites)
     categories = ["pii", "injection", "benign"]
-    
+
     # Create execution plan
     execution_plan = {
         "models": selected_models,
@@ -61,14 +62,14 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
         "profiles": profiles,
         "sample_mode": sample_mode,
         "out_dir": out_dir,
-        "tasks": []
+        "tasks": [],
     }
-    
+
     # Generate task matrix
     total_tasks = 0
     total_estimated_calls = 0
     estimated_cost = 0.0
-    
+
     for model in selected_models:
         for category in categories:
             for profile in profiles:
@@ -76,11 +77,11 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
                     "model": model,
                     "category": category,
                     "profile": profile,
-                    "out_path": f"{out_dir}/runs/{model.replace(':', '_')}_{category}_{profile}.jsonl"
+                    "out_path": f"{out_dir}/runs/{model.replace(':', '_')}_{category}_{profile}.jsonl",
                 }
                 execution_plan["tasks"].append(task)
                 total_tasks += 1
-                
+
                 # Estimate calls based on sample mode
                 if sample_mode == "SMOKE":
                     estimated_calls = 3  # 3 per category
@@ -90,17 +91,17 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
                     estimated_calls = int(sample_mode.split("=")[1])
                 else:
                     estimated_calls = 10  # Default
-                
+
                 total_estimated_calls += estimated_calls
-                
+
                 # Rough cost estimation (assuming ~100 tokens per call)
                 model_cost = 0.00001  # Very rough estimate
                 estimated_cost += estimated_calls * model_cost
-    
+
     execution_plan["total_tasks"] = total_tasks
     execution_plan["estimated_calls"] = total_estimated_calls
     execution_plan["estimated_cost_usd"] = estimated_cost
-    
+
     # Print execution plan table
     table = Table(title="Release Execution Plan")
     table.add_column("Model", style="cyan")
@@ -108,81 +109,83 @@ def plan_release(out_dir: str, sample_mode: str, model_patterns: list, profiles:
     table.add_column("Profiles", style="magenta")
     table.add_column("Tasks", justify="right")
     table.add_column("Est. Calls", justify="right")
-    
+
     for model in selected_models:
         model_tasks = len([t for t in execution_plan["tasks"] if t["model"] == model])
         model_calls = model_tasks * (3 if sample_mode == "SMOKE" else 20)
-        
+
         table.add_row(
             model.replace("openai:", "").replace("anthropic:", ""),
             ", ".join(categories),
             ", ".join(profiles),
             str(model_tasks),
-            str(model_calls)
+            str(model_calls),
         )
-    
+
     console.print(table)
     console.print(f"\n[bold]Summary:[/bold]")
     console.print(f"  Total tasks: {total_tasks}")
     console.print(f"  Estimated calls: {total_estimated_calls:,}")
     console.print(f"  Estimated cost: ${estimated_cost:.4f}")
     console.print(f"  Sample mode: {sample_mode}")
-    
+
     return execution_plan
 
 
 def run_release(execution_plan: dict) -> None:
     """Execute the release plan."""
-    
+
     total_tasks = len(execution_plan["tasks"])
     completed = 0
-    
+
     for i, task in enumerate(execution_plan["tasks"], 1):
-        console.print(f"[blue]({i}/{total_tasks})[/blue] Running {task['model']} × {task['category']} × {task['profile']}")
-        
+        console.print(
+            f"[blue]({i}/{total_tasks})[/blue] Running {task['model']} × {task['category']} × {task['profile']}"
+        )
+
         try:
             # Determine config file based on category
             if task["category"] == "pii":
                 config_file = "configs/eval_pi_injection.yaml"
             elif task["category"] == "injection":
-                config_file = "configs/eval_pi_injection.yaml"  
+                config_file = "configs/eval_pi_injection.yaml"
             elif task["category"] == "benign":
                 config_file = "configs/eval_pi_injection.yaml"
             else:
                 config_file = "configs/eval_pi_injection.yaml"
-            
+
             # Handle sample mode for limit_per_suite
             limit_per_suite = None
             if execution_plan["sample_mode"] == "SMOKE":
                 limit_per_suite = 3
             elif execution_plan["sample_mode"].startswith("N="):
                 limit_per_suite = int(execution_plan["sample_mode"].split("=")[1])
-            
+
             # Apply sample limit if specified
             original_config = None
             if limit_per_suite:
                 # Load and modify config temporarily
                 with open(config_file, "r") as f:
                     config_data = yaml.safe_load(f)
-                
+
                 # Apply limit to all datasets
                 for dataset_name in config_data.get("datasets", {}):
                     if "sampling" not in config_data["datasets"][dataset_name]:
                         config_data["datasets"][dataset_name]["sampling"] = {}
                     config_data["datasets"][dataset_name]["sampling"]["n"] = limit_per_suite
-                
+
                 # Save to temporary file
                 temp_config = Path(config_file).parent / f".temp_{Path(config_file).name}"
                 with open(temp_config, "w") as f:
                     yaml.dump(config_data, f)
-                
+
                 original_config = config_file
                 config_file = str(temp_config)
-            
+
             try:
                 # Create output directory
                 Path(task["out_path"]).parent.mkdir(parents=True, exist_ok=True)
-                
+
                 # Run evaluation
                 run_eval(
                     suite_name=task["category"],
@@ -191,24 +194,29 @@ def run_release(execution_plan: dict) -> None:
                     out_path=task["out_path"],
                     mitigation_id=None,
                     replay_path=None,
-                    profile_name=task["profile"]
+                    profile_name=task["profile"],
                 )
-                
+
                 completed += 1
-                console.print(f"[green]✓[/green] Completed {task['model']} × {task['category']} × {task['profile']}")
-                
+                console.print(
+                    f"[green]✓[/green] Completed {task['model']} × {task['category']} × {task['profile']}"
+                )
+
             finally:
                 # Clean up temporary config if created
                 if original_config and limit_per_suite:
                     import os
+
                     if os.path.exists(config_file):
                         os.remove(config_file)
-                        
+
         except Exception as e:
-            console.print(f"[red]✗[/red] Failed {task['model']} × {task['category']} × {task['profile']}: {e}")
+            console.print(
+                f"[red]✗[/red] Failed {task['model']} × {task['category']} × {task['profile']}: {e}"
+            )
             # Continue with other tasks
             continue
-    
+
     console.print(f"\n[bold]Execution complete:[/bold] {completed}/{total_tasks} tasks succeeded")
 
 
@@ -1044,10 +1052,16 @@ def packs_validate(pack_id: str, path: str) -> None:
 @click.option("--out", required=True, type=click.Path(), help="Output directory for release")
 @click.option("--sample", default="FULL", help="Sample mode: SMOKE, FULL, or N=<number>")
 @click.option("--include-models", default="*", help="Glob/comma list of models to include")
-@click.option("--profiles", default="baseline,policy_gate,prompt_hardening,both", help="Comma-separated list of profiles")
+@click.option(
+    "--profiles",
+    default="baseline,policy_gate,prompt_hardening,both",
+    help="Comma-separated list of profiles",
+)
 @click.option("--golden", default=None, help="Path to golden reference directory")
 @click.option("--plan", is_flag=True, help="Dry run only - show plan without executing")
-def release_cmd(out: str, sample: str, include_models: str, profiles: str, golden: str, plan: bool) -> None:
+def release_cmd(
+    out: str, sample: str, include_models: str, profiles: str, golden: str, plan: bool
+) -> None:
     """
     Builds the model × category × profile plan, executes (unless --plan),
     aggregates to matrix.parquet, runs golden comparison, and renders the HTML report.
@@ -1056,77 +1070,78 @@ def release_cmd(out: str, sample: str, include_models: str, profiles: str, golde
         # Parse parameters
         model_patterns = [m.strip() for m in include_models.split(",") if m.strip()]
         profile_list = [p.strip() for p in profiles.split(",") if p.strip()]
-        
+
         # Create output directory
         out_path = Path(out)
         out_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Step 1: Plan release
         console.print("[bold blue]Planning release...[/bold blue]")
         execution_plan = plan_release(
             out_dir=str(out_path),
             sample_mode=sample,
             model_patterns=model_patterns,
-            profiles=profile_list
+            profiles=profile_list,
         )
-        
+
         if plan:
             console.print("\n[yellow]Dry run complete. Use without --plan to execute.[/yellow]")
             return
-            
+
         # Step 2: Execute release
         console.print(f"\n[bold green]Executing release plan...[/bold green]")
         run_release(execution_plan)
-        
+
         # Step 3: Aggregate to matrix
         console.print(f"\n[bold blue]Aggregating results...[/bold blue]")
         from seibox.scoring.aggregate import aggregate_matrix
-        
+
         aggregates_dir = out_path / "aggregates"
         aggregates_dir.mkdir(exist_ok=True)
-        
+
         # Find all result files
         runs_dir = out_path / "runs"
         matrix_df = aggregate_matrix(str(runs_dir))
-        
+
         # Save matrix
         matrix_path = aggregates_dir / "matrix.parquet"
         matrix_df.to_parquet(matrix_path, index=False)
         console.print(f"[green]✓[/green] Matrix saved to: {matrix_path}")
-        
+
         # Step 4: Golden comparison (if requested)
         golden_compare_path = None
         if golden:
             console.print(f"\n[bold blue]Running golden comparison...[/bold blue]")
             from seibox.scoring.golden import compare_to_golden
-            
+
             golden_result = compare_to_golden(matrix_df, golden)
             golden_compare_path = aggregates_dir / "golden_compare.json"
-            
+
             import json
+
             with open(golden_compare_path, "w") as f:
                 json.dump(golden_result, f, indent=2)
             console.print(f"[green]✓[/green] Golden comparison saved to: {golden_compare_path}")
-        
+
         # Step 5: Render HTML report
         console.print(f"\n[bold blue]Rendering HTML report...[/bold blue]")
         from seibox.ui.release_report import render_release_report
-        
+
         reports_dir = out_path / "reports"
         reports_dir.mkdir(exist_ok=True)
         report_path = reports_dir / "release.html"
-        
+
         render_release_report(
             matrix_parquet=str(matrix_path),
             golden_json=str(golden_compare_path) if golden_compare_path else None,
-            out_html=str(report_path)
+            out_html=str(report_path),
         )
-        
+
         console.print(f"[green]✓[/green] HTML report saved to: {report_path}")
         console.print(f"\n[bold green]Release complete![/bold green]")
         console.print(f"📁 Output directory: {out_path}")
         console.print(f"📊 HTML report: {report_path}")
-        
+
     except Exception as e:
         console.print(f"[bold red]Error running release:[/bold red] {e}")
         raise click.Abort()
